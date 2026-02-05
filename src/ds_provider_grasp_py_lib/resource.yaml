@@ -1,0 +1,17 @@
+package-name: grasp
+name: grasp
+description: GRASP provider for the DS Business Workflow
+
+
+dataset:
+  - name: Grasp Cart
+    type: DS.RESOURCE.DATASET.GRASP_CART
+    version: 1.0.0
+    description: Grasp dataset
+    class_name: ds_provider_grasp_py_lib.dataset.cart.GraspCartDataset
+
+  - name: Grasp Ingress
+    type: DS.RESOURCE.DATASET.GRASP_INGRESS
+    version: 1.0.0
+    description: Grasp ingress dataset
+    class_name: ds_provider_grasp_py_lib.dataset.ingress.GraspIngressDataset
