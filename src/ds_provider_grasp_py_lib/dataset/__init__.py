@@ -2,9 +2,9 @@
 **File:** ``__init__.py``
 **Region:** ``ds_provider_grasp_py_lib/dataset``
 
-Grasp Cart Dataset
+Grasp Datasets
 
-This module implements a dataset for Grasp Cart.
+This module provides access to both Grasp Cart and Grasp Ingress datasets.
 
 Example:
     >>> dataset = GraspCartDataset(
