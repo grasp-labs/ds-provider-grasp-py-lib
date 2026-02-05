@@ -59,11 +59,11 @@ dataset = GraspCartDataset(
         ),
     ),
     settings=GraspCartDatasetSettings(
-        tenant_id="****************",
         owner_id="****************",
         product_group_name="****************",
         product_name="****************",
         version="****************",
+        include_history=False,
     ),
 )
 
