@@ -8,6 +8,9 @@ This module implements a dataset for Grasp Ingress.
 
 Example:
     >>> dataset = GraspIngressDataset(
+    ...     id=uuid.uuid4(),
+    ...     name="ingress-dataset",
+    ...     version="1.0.0",
     ...     deserializer=PandasDeserializer(format=DatasetStorageFormatType.JSON),
     ...     serializer=PandasSerializer(format=DatasetStorageFormatType.JSON),
     ...     settings=GraspIngressDatasetSettings(
@@ -18,6 +21,9 @@ Example:
     ...         include_history=True,
     ...     ),
     ...     linked_service=GraspAwsLinkedService(
+    ...         id=uuid.uuid4(),
+    ...         name="aws-linked-service",
+    ...         version="1.0.0",
     ...         settings=GraspAwsLinkedServiceSettings(
     ...             access_key_id="access_key_id",
     ...             access_key_secret="access_key_secret",
