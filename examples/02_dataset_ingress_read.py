@@ -12,9 +12,9 @@ This example demonstrates how to:
 from __future__ import annotations
 
 import logging
-
 from os import environ
 import uuid
+
 from ds_common_logger_py_lib import Logger
 from ds_provider_aws_py_lib.linked_service.aws import (
     AWSLinkedService,
