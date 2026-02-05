@@ -194,7 +194,7 @@ class GraspCartDataset(
             ) from exc
 
         if not self.settings.include_history:
-            logger.debug("Dropping _valid_to  rows")
+            logger.debug("Dropping _valid_to rows")
             self.output = self.output.loc[self.output["_valid_to"].isna()]
 
         logger.debug(f"Successfully read {len(self.output)} rows from {s3_path}")
