@@ -1,4 +1,4 @@
-# {{PROJECT_NAME}}
+# ds-provider-grasp-py-lib
 
 A Python package from the ds-common library collection.
 
@@ -7,58 +7,82 @@ A Python package from the ds-common library collection.
 Install the package using pip:
 
 ```bash
-pip install {{PROJECT_NAME}}
+pip install ds-provider-grasp-py-lib
 ```
 
 Or using uv (recommended):
 
 ```bash
-uv pip install {{PROJECT_NAME}}
+uv pip install ds-provider-grasp-py-lib
 ```
 
 ## Quick Start
 
 ```python
-from {{PYTHON_MODULE_NAME}} import __version__
+from ds_provider_grasp_py_lib import __version__
 
-print(f"{{PROJECT_NAME}} version: {__version__}")
+print(f"ds-provider-grasp-py-lib version: {__version__}")
 ```
 
 ## Features
 
-<!-- List your package features here -->
-- Feature 1: Description of feature 1
-- Feature 2: Description of feature 2
-- Feature 3: Description of feature 3
+- **GRASP Provider**: Provider for the GRASP platform
+- **AWS Provider**: Provider for the AWS platform
 
 ## Usage
 
-<!-- Add usage examples here -->
-
 ```python
-# Example usage
-import {{PYTHON_MODULE_NAME}}
+import uuid
+import logging
+from os import environ
 
-# Your code examples here
+from ds_common_logger_py_lib import Logger
+from ds_provider_aws_py_lib.linked_service.aws import AWSLinkedService, AWSLinkedServiceSettings
+from ds_provider_grasp_py_lib.dataset.cart import GraspCartDataset, GraspCartDatasetSettings
+Logger.configure(level=logging.DEBUG)
+logger = Logger.get_logger(__name__)
+
+
+dataset = GraspCartDataset(
+    id=uuid.uuid4(),
+    name="cart-dataset",
+    version="1.0.0",
+    linked_service=AWSLinkedService(
+        id=uuid.uuid4(),
+        name="aws-linked-service",
+        version="1.0.0",
+        settings=AWSLinkedServiceSettings(
+            access_key_id="****************",
+            access_key_secret="****************",
+            region="eu-north-1",
+            account_id="****************",
+        ),
+    ),
+    settings=GraspCartDatasetSettings(
+        tenant_id="****************",
+        owner_id="****************",
+        product_group_name="****************",
+        product_name="****************",
+        version="****************",
+    ),
+)
+
+dataset.linked_service.connect()
+environ["TENANT_ID"] = "****************"
+dataset.read()
+logger.debug(f"Dataset: {dataset.output}")
 ```
 
 ## Requirements
 
-- Python 3.9 or higher
-- <!-- List any required dependencies -->
-
-## Optional Dependencies
-
-<!-- List optional dependencies if any -->
-- Optional dependency 1: Description
-- Optional dependency 2: Description
+- Python 3.11 or higher
 
 ## Documentation
 
 Full documentation is available at:
 
-- [GitHub Repository](https://github.com/grasp-labs/{{GITHUB_REPO}})
-- [Documentation Site](https://grasp-labs.github.io/{{GITHUB_REPO}}/)
+- [GitHub Repository](https://github.com/grasp-labs/ds-provider-grasp-py-lib)
+- [Documentation Site](https://grasp-labs.github.io/ds-provider-grasp-py-lib/)
 
 ## Development
 
@@ -66,8 +90,8 @@ To contribute or set up a development environment:
 
 ```bash
 # Clone the repository
-git clone https://github.com/grasp-labs/{{GITHUB_REPO}}.git
-cd {{GITHUB_REPO}}
+git clone https://github.com/grasp-labs/ds-provider-grasp-py-lib.git
+cd ds-provider-grasp-py-lib
 
 # Install development dependencies
 uv sync --all-extras --dev
@@ -76,15 +100,17 @@ uv sync --all-extras --dev
 make test
 ```
 
-See the [README](https://github.com/grasp-labs/{{GITHUB_REPO}}#readme) for more information.
+See the [README][readme] for more information.
+
+[readme]: https://github.com/grasp-labs/ds-provider-grasp-py-lib#readme
 
 ## License
 
 This package is licensed under the Apache License 2.0.
-See the [LICENSE-APACHE](https://github.com/grasp-labs/{{GITHUB_REPO}}/blob/main/LICENSE-APACHE)
+See the [LICENSE-APACHE](https://github.com/grasp-labs/ds-provider-grasp-py-lib/blob/main/LICENSE-APACHE)
 file for details.
 
 ## Support
 
-- **Issues**: [GitHub Issues](https://github.com/grasp-labs/{{GITHUB_REPO}}/issues)
-- **Releases**: [GitHub Releases](https://github.com/grasp-labs/{{GITHUB_REPO}}/releases)
+- **Issues**: [GitHub Issues](https://github.com/grasp-labs/ds-provider-grasp-py-lib/issues)
+- **Releases**: [GitHub Releases](https://github.com/grasp-labs/ds-provider-grasp-py-lib/releases)

@@ -8,7 +8,7 @@
 SRC_DIR         ?= src
 TEST_DIR        ?= tests
 DOCS_DIR        ?= docs
-MODULE_NAME     ?= {{PYTHON_MODULE_NAME}}
+MODULE_NAME     ?= ds_provider_grasp_py_lib
 
 # Colors for terminal output
 BLUE := \033[0;34m
@@ -37,21 +37,24 @@ clean: ## Clean build and cache artifacts
 # ===== Code Quality =====
 
 .PHONY: lint
-lint: ## Lint with ruff
-	uv run ruff check --config .config/ruff.toml --fix --exit-non-zero-on-fix $(SRC_DIR) $(TEST_DIR)
+lint: ## Lint Python, YAML, JSON, TOML, and Markdown files
+	uv run pre-commit run ruff --all-files
+	uv run pre-commit run check-yaml --all-files
+	uv run pre-commit run check-json --all-files
+	uv run pre-commit run check-toml --all-files
 	uv run pre-commit run markdownlint --all-files
 
 .PHONY: format
 format: ## Format with ruff
-	uv run ruff format --config .config/ruff.toml .
+	uv run pre-commit run ruff-format --all-files
 
 .PHONY: type-check
 type-check: ## Type-check with mypy
-	uv run mypy --config-file .config/mypy.ini $(SRC_DIR)
+	uv run pre-commit run mypy --all-files
 
 .PHONY: security-check
 security-check: ## Run security checks (bandit)
-	uv run bandit -r $(SRC_DIR) || true
+	uv run pre-commit run bandit --all-files
 
 # ===== Tests =====
 
