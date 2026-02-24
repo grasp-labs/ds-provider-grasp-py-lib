@@ -118,14 +118,14 @@ class GraspCartDataset(
             f"{self.settings.owner_id}/data/"
         )
 
-    def create(self, **_kwargs: Any) -> None:
+    def create(self) -> None:
         raise AuthorizationError(
             message="You are not authorized to create a Grasp Cart dataset",
             status_code=403,
             details={"settings": self.settings.serialize()},
         )
 
-    def read(self, **_kwargs: Any) -> None:
+    def read(self) -> None:
         """
         Read data from the Grasp Cart dataset.
 
@@ -187,7 +187,7 @@ class GraspCartDataset(
 
         logger.debug(f"Successfully read {len(self.output)} rows from {s3_path}")
 
-    def delete(self, **_kwargs: Any) -> NoReturn:
+    def delete(self) -> NoReturn:
         raise AuthorizationError(
             message="You are not authorized to delete a Grasp Cart dataset",
             status_code=403,
@@ -197,7 +197,7 @@ class GraspCartDataset(
             },
         )
 
-    def update(self, **_kwargs: Any) -> NoReturn:
+    def update(self) -> NoReturn:
         raise AuthorizationError(
             message="You are not authorized to update a Grasp Cart dataset",
             status_code=403,
@@ -207,7 +207,7 @@ class GraspCartDataset(
             },
         )
 
-    def upsert(self, **_kwargs: Any) -> NoReturn:
+    def upsert(self) -> NoReturn:
         raise AuthorizationError(
             message="You are not authorized to upsert a Grasp Cart dataset",
             status_code=403,
@@ -217,7 +217,7 @@ class GraspCartDataset(
             },
         )
 
-    def rename(self, **_kwargs: Any) -> NoReturn:
+    def rename(self) -> NoReturn:
         raise AuthorizationError(
             message="You are not authorized to rename a Grasp Cart dataset",
             status_code=403,
@@ -227,7 +227,7 @@ class GraspCartDataset(
             },
         )
 
-    def purge(self, **_kwargs: Any) -> NoReturn:
+    def purge(self) -> NoReturn:
         raise AuthorizationError(
             message="You are not authorized to purge a Grasp Cart dataset",
             status_code=403,
@@ -237,7 +237,7 @@ class GraspCartDataset(
             },
         )
 
-    def list(self, **_kwargs: Any) -> NoReturn:
+    def list(self) -> NoReturn:
         raise AuthorizationError(
             message="You are not authorized to list a Grasp Cart dataset",
             status_code=403,
