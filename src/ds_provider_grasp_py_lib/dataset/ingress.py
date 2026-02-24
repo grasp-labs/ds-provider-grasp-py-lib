@@ -39,7 +39,6 @@ from dataclasses import dataclass, field
 from os import getenv
 from typing import Any, Generic, NoReturn, TypeVar
 
-import pandas as pd
 from awswrangler.exceptions import NoFilesFound
 from ds_common_logger_py_lib import Logger
 from ds_provider_aws_py_lib.linked_service.aws import AWSLinkedService
@@ -49,7 +48,7 @@ from ds_resource_plugin_py_lib.common.resource.dataset import (
     TabularDataset,
 )
 from ds_resource_plugin_py_lib.common.resource.dataset.errors import NotFoundError, ReadError
-from ds_resource_plugin_py_lib.common.resource.linked_service.errors import AuthorizationError, ConnectionError
+from ds_resource_plugin_py_lib.common.resource.linked_service.errors import AuthorizationError
 from ds_resource_plugin_py_lib.common.serde.deserialize import AwsWranglerDeserializer
 from ds_resource_plugin_py_lib.common.serde.serialize import AwsWranglerSerializer
 
@@ -122,7 +121,6 @@ class GraspIngressDataset(
         Read data from the Grasp Ingress dataset.
 
         Raises:
-            ConnectionError: If the connection fails.
             ReadError: If the read operation fails, including when no files are found
                 at the S3 path or when the S3 path is invalid.
         """
@@ -135,17 +133,6 @@ class GraspIngressDataset(
                 message="TENANT_ID and SESSION_ID environment variables are required",
                 status_code=400,
                 details={"type": self.type.value, "settings": self.settings.serialize()},
-            )
-
-        if self.linked_service.session is None:
-            logger.error("Connection is not established.")
-            raise ConnectionError(
-                message="Connection is not established.",
-                status_code=500,
-                details={
-                    "type": self.type.value,
-                    "settings": self.settings.serialize(),
-                },
             )
 
         if not self.deserializer:
@@ -167,10 +154,8 @@ class GraspIngressDataset(
         try:
             self.output = self.deserializer(
                 s3_path,
-                boto3_session=self.linked_service.session,
+                boto3_session=self.linked_service.connection,
             )
-            self._set_schema(self.output)
-            self.next = False
         except NoFilesFound as exc:
             logger.error(f"No files found at S3 path: {s3_path}")
             raise NotFoundError(
@@ -195,7 +180,6 @@ class GraspIngressDataset(
                 },
             ) from exc
         logger.debug(f"Successfully read {len(self.output)} rows from {s3_path}")
-        logger.debug(f"Schema: {self.schema}")
 
     def delete(self, **_kwargs: Any) -> NoReturn:
         raise AuthorizationError(
@@ -217,9 +201,39 @@ class GraspIngressDataset(
             },
         )
 
+    def upsert(self, **_kwargs: Any) -> NoReturn:
+        raise AuthorizationError(
+            message="You are not authorized to upsert a Grasp Ingress dataset",
+            status_code=403,
+            details={
+                "type": self.type.value,
+                "settings": self.settings.serialize(),
+            },
+        )
+
     def rename(self, **_kwargs: Any) -> NoReturn:
         raise AuthorizationError(
             message="You are not authorized to rename a Grasp Ingress dataset",
+            status_code=403,
+            details={
+                "type": self.type.value,
+                "settings": self.settings.serialize(),
+            },
+        )
+
+    def purge(self, **_kwargs: Any) -> NoReturn:
+        raise AuthorizationError(
+            message="You are not authorized to purge a Grasp Ingress dataset",
+            status_code=403,
+            details={
+                "type": self.type.value,
+                "settings": self.settings.serialize(),
+            },
+        )
+
+    def list(self, **_kwargs: Any) -> NoReturn:
+        raise AuthorizationError(
+            message="You are not authorized to list a Grasp Ingress dataset",
             status_code=403,
             details={
                 "type": self.type.value,
@@ -232,13 +246,3 @@ class GraspIngressDataset(
         Close the dataset.
         """
         self.linked_service.close()
-
-    def _set_schema(self, content: pd.DataFrame) -> None:
-        """
-        Set the schema from the content.
-
-        Args:
-            content: The content to set the schema from.
-        """
-        converted = content.convert_dtypes(dtype_backend="pyarrow")
-        self.schema = {str(col): str(dtype) for col, dtype in converted.dtypes.to_dict().items()}
