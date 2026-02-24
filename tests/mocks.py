@@ -112,7 +112,7 @@ def create_mock_cart_dataset(
         "id": uuid.uuid4(),
         "name": "test-cart-dataset",
         "version": "1.0.0",
-        "linked_service": cast("Any", linked_service),
+        "linked_service": cast(Any, linked_service),
         "settings": settings,
     }
     if deserializer is not _UNSET:
