@@ -507,21 +507,22 @@ wheels = [
 
 [[package]]
 name = "ds-provider-aws-py-lib"
-version = "0.1.0a1"
+version = "0.1.0a4"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "boto3" },
     { name = "botocore" },
+    { name = "ds-common-logger-py-lib" },
     { name = "ds-resource-plugin-py-lib" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/70/f2/67f878726071c1035f4db10b0a64b96426f98ea55508c586ae493d3e15fc/ds_provider_aws_py_lib-0.1.0a1.tar.gz", hash = "sha256:a8adc91b40d472c93cd5fb8cc122c9bbb7f6cc166671898b221b08e4769a9006", size = 11453, upload-time = "2026-01-22T16:38:21.396Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/2e/65/5e81305ca2889f5303b3342f4f6bb5d461c29d2e3264baac9868adc589a5/ds_provider_aws_py_lib-0.1.0a4.tar.gz", hash = "sha256:d2f856f93f82ef61ddf1e83bbdf8a6e3f60a2f7c3d1e042400b95c7717ac6ce4", size = 11710, upload-time = "2026-02-24T23:10:35.948Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/09/08/bb0a3802c0e8cffb9b390e46ee449a4956ad74564c39ac97b389a8d696a1/ds_provider_aws_py_lib-0.1.0a1-py3-none-any.whl", hash = "sha256:b07f6624881b1e8ff0a1926747a1bd569c56d812126fcd9b0923e2a3200be6a2", size = 10085, upload-time = "2026-01-22T16:38:20.243Z" },
+    { url = "https://files.pythonhosted.org/packages/29/45/9214e513c9a1243269216257b5fa8a0315b9493811da4da50c95ad53ed1a/ds_provider_aws_py_lib-0.1.0a4-py3-none-any.whl", hash = "sha256:0dd66f012ce09939fe1cd6628d90e42da9bad937f963ae11e1e1e8c2980cd5a6", size = 10374, upload-time = "2026-02-24T23:10:34.768Z" },
 ]
 
 [[package]]
 name = "ds-provider-grasp-py-lib"
-version = "0.1.0a2"
+version = "0.1.0b1"
 source = { editable = "." }
 dependencies = [
     { name = "ds-common-logger-py-lib" },
@@ -566,8 +567,8 @@ requires-dist = [
     { name = "boto3-stubs", marker = "extra == 'dev'", specifier = ">=1.35.0" },
     { name = "build", marker = "extra == 'dev'", specifier = ">=1.0.0" },
     { name = "ds-common-logger-py-lib", specifier = ">=0.1.0a5,<1.0.0" },
-    { name = "ds-provider-aws-py-lib", specifier = ">=0.1.0a1,<1.0.0" },
-    { name = "ds-resource-plugin-py-lib", specifier = ">=0.1.0b1,<1.0.0" },
+    { name = "ds-provider-aws-py-lib", specifier = ">=0.1.0a4,<1.0.0" },
+    { name = "ds-resource-plugin-py-lib", specifier = ">=0.1.0rc1,<1.0.0" },
     { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.7.0" },
     { name = "pandas", specifier = ">=2.2.0,<3.0.0" },
     { name = "pandas-stubs", marker = "extra == 'dev'", specifier = ">=2.2.0" },
@@ -591,7 +592,7 @@ provides-extras = ["dev", "test", "docs"]
 
 [[package]]
 name = "ds-resource-plugin-py-lib"
-version = "0.1.0b1"
+version = "0.1.0rc1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "awswrangler" },
@@ -601,9 +602,9 @@ dependencies = [
     { name = "pyyaml" },
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/40/bb/0e4dbca2e1aa0eec7d14f46ab6b16ab3746f333a20af8dbb06d9cae583ff/ds_resource_plugin_py_lib-0.1.0b1.tar.gz", hash = "sha256:05ff7153361cf8b90654ac12169f6328428093c59d28da10113c763069b9a8a8", size = 18895, upload-time = "2026-02-05T10:40:38.641Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/b4/cb/6baf2b0d49f8764158a79b64eef23a7f081511bca66f5e02c8d9132d1890/ds_resource_plugin_py_lib-0.1.0rc1.tar.gz", hash = "sha256:ae27af3a31e4d8cc133fa25b8d0eb3bffaf768ec526f61100608098fb5cd87ba", size = 22463, upload-time = "2026-02-24T11:03:18.682Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/27/1e/67362fe17eb82ec1cb5af171cd1d34070f03c4f9d4965647ec4500942a61/ds_resource_plugin_py_lib-0.1.0b1-py3-none-any.whl", hash = "sha256:e6ed286d04985f2de3eda89a8d2bed92e9e8a07993fadf227f0c087b62dfa69a", size = 26234, upload-time = "2026-02-05T10:40:37.27Z" },
+    { url = "https://files.pythonhosted.org/packages/6b/04/dac0995c3e1ce1e58e7cb09c62e1a837877e9b1a33d9d3e5e3b2f7784de7/ds_resource_plugin_py_lib-0.1.0rc1-py3-none-any.whl", hash = "sha256:56e08d431393f5e4e225f6517c72af83b5776a8ac49c72d10f3721afdf2351cb", size = 31141, upload-time = "2026-02-24T11:03:17.7Z" },
 ]
 
 [[package]]

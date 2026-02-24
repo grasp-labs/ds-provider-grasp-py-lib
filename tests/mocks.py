@@ -4,7 +4,7 @@
 
 Shared mock utilities for Grasp provider tests.
 
-Provides reusable mocks for AWS linked services, sessions, and datasets
+Provides reusable mocks for AWS linked services, connections, and datasets
 to enable isolated unit testing without requiring actual AWS connections.
 """
 
@@ -25,12 +25,14 @@ from ds_provider_grasp_py_lib.dataset.ingress import (
     GraspIngressDatasetSettings,
 )
 
+_UNSET = object()
+
 
 class MockBoto3Session:
     """
-    Mock boto3 Session for testing.
+    Mock boto3 connection for testing.
 
-    Provides a mock session with configurable behavior.
+    Provides a mock connection with configurable behavior.
     """
 
     def __init__(self) -> None:
@@ -42,11 +44,11 @@ class MockAWSLinkedService:
     """
     Mock AWS Linked Service for testing.
 
-    Provides a mock linked service with a configurable session.
+    Provides a mock linked service with a configurable connection.
     """
 
-    def __init__(self, session: MockBoto3Session | None = None) -> None:
-        self.session = session
+    def __init__(self, connection: MockBoto3Session | None = None) -> None:
+        self.connection = connection
         self._closed = False
 
     def close(self) -> None:
@@ -55,19 +57,19 @@ class MockAWSLinkedService:
 
 
 def create_mock_aws_linked_service(
-    with_session: bool = True,
+    with_connection: bool = True,
 ) -> MockAWSLinkedService:
     """
     Create a mock AWSLinkedService for testing.
 
     Args:
-        with_session: Whether to include a mock session.
+        with_connection: Whether to include a mock connection.
 
     Returns:
-        MockAWSLinkedService: A linked service instance with optional mock session.
+        MockAWSLinkedService: A linked service instance with optional mock connection.
     """
-    session = MockBoto3Session() if with_session else None
-    return MockAWSLinkedService(session=session)
+    connection = MockBoto3Session() if with_connection else None
+    return MockAWSLinkedService(connection=connection)
 
 
 def create_mock_cart_dataset(
@@ -77,8 +79,8 @@ def create_mock_cart_dataset(
     version: str = "1.0",
     include_history: bool = False,
     linked_service: MockAWSLinkedService | None = None,
-    deserializer: Any = None,
-    serializer: Any = None,
+    deserializer: Any = _UNSET,
+    serializer: Any = _UNSET,
 ) -> GraspCartDataset[Any, Any]:
     """
     Create a mock GraspCartDataset for testing.
@@ -106,22 +108,28 @@ def create_mock_cart_dataset(
         version=version,
         include_history=include_history,
     )
+    dataset_kwargs: dict[str, Any] = {
+        "id": uuid.uuid4(),
+        "name": "test-cart-dataset",
+        "version": "1.0.0",
+        "linked_service": cast("Any", linked_service),
+        "settings": settings,
+    }
+    if deserializer is not _UNSET:
+        dataset_kwargs["deserializer"] = deserializer
+    if serializer is not _UNSET:
+        dataset_kwargs["serializer"] = serializer
+
     dataset = GraspCartDataset(
-        id=uuid.uuid4(),
-        name="test-cart-dataset",
-        version="1.0.0",
-        linked_service=cast("Any", linked_service),
-        settings=settings,
-        deserializer=deserializer,
-        serializer=serializer,
+        **dataset_kwargs,
     )
     return dataset
 
 
 def create_mock_ingress_dataset(
     linked_service: MockAWSLinkedService | None = None,
-    deserializer: Any = None,
-    serializer: Any = None,
+    deserializer: Any = _UNSET,
+    serializer: Any = _UNSET,
 ) -> GraspIngressDataset[Any, Any]:
     """
     Create a mock GraspIngressDataset for testing.
@@ -138,15 +146,19 @@ def create_mock_ingress_dataset(
         linked_service = create_mock_aws_linked_service()
 
     settings = GraspIngressDatasetSettings()
-    dataset = GraspIngressDataset(
-        id=uuid.uuid4(),
-        name="test-ingress-dataset",
-        version="1.0.0",
-        linked_service=cast("Any", linked_service),
-        settings=settings,
-        deserializer=deserializer,
-        serializer=serializer,
-    )
+    dataset_kwargs: dict[str, Any] = {
+        "id": uuid.uuid4(),
+        "name": "test-ingress-dataset",
+        "version": "1.0.0",
+        "linked_service": cast("Any", linked_service),
+        "settings": settings,
+    }
+    if deserializer is not _UNSET:
+        dataset_kwargs["deserializer"] = deserializer
+    if serializer is not _UNSET:
+        dataset_kwargs["serializer"] = serializer
+
+    dataset = GraspIngressDataset(**dataset_kwargs)
     return dataset
 
 
