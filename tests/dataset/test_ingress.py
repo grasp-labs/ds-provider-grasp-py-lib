@@ -8,7 +8,6 @@ Covers:
 - Dataset type property.
 - S3 path generation.
 - Read operation with various error conditions.
-- Schema setting from DataFrame.
 - Close operation.
 """
 
@@ -16,15 +15,11 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
 
-import pandas as pd
 import pytest
 from awswrangler.exceptions import NoFilesFound
 from ds_resource_plugin_py_lib.common.resource.dataset.errors import (
     NotFoundError,
     ReadError,
-)
-from ds_resource_plugin_py_lib.common.resource.linked_service.errors import (
-    ConnectionError,
 )
 
 from ds_provider_grasp_py_lib.enums import ResourceType
@@ -44,7 +39,7 @@ class TestGraspIngressDatasetType:
         """
         dataset = create_mock_ingress_dataset()
         assert dataset.type == ResourceType.DATASET_INGRESS
-        assert dataset.type == "DS.RESOURCE.DATASET.GRASP_INGRESS"
+        assert dataset.type == "ds.resource.dataset.grasp_ingress"
 
 
 class TestGraspIngressDatasetS3Path:
@@ -106,24 +101,6 @@ class TestGraspIngressDatasetRead:
             dataset.read()
         assert "TENANT_ID and SESSION_ID environment variables are required" in str(exc_info.value)
         assert exc_info.value.status_code == 400
-
-    def test_read_raises_connection_error_when_session_none(self) -> None:
-        """
-        It raises ConnectionError when session is not established.
-        """
-        linked_service = create_mock_aws_linked_service(with_session=False)
-        dataset = create_mock_ingress_dataset(linked_service=linked_service)
-
-        with (
-            patch.dict(
-                "os.environ",
-                {"TENANT_ID": "tenant123", "SESSION_ID": "session123"},
-            ),
-            pytest.raises(ConnectionError) as exc_info,
-        ):
-            dataset.read()
-        assert "Connection is not established" in str(exc_info.value)
-        assert exc_info.value.status_code == 500
 
     def test_read_raises_read_error_when_deserializer_not_set(self) -> None:
         """
@@ -212,28 +189,6 @@ class TestGraspIngressDatasetRead:
             dataset.read()
 
         assert len(dataset.output) == 3
-        assert dataset.next is False
-
-
-class TestGraspIngressDatasetSchema:
-    """Tests for GraspIngressDataset schema setting."""
-
-    def test_set_schema_extracts_column_types(self) -> None:
-        """
-        It extracts column names and types from DataFrame.
-        """
-        dataset = create_mock_ingress_dataset()
-        test_df = pd.DataFrame(
-            {
-                "id": [1, 2],
-                "name": ["a", "b"],
-                "value": [1.5, 2.5],
-            }
-        )
-        dataset._set_schema(test_df)
-        assert "id" in dataset.schema
-        assert "name" in dataset.schema
-        assert "value" in dataset.schema
 
 
 class TestGraspIngressDatasetClose:

@@ -61,6 +61,36 @@ class TestGraspCartDatasetUnauthorized:
         assert "not authorized to rename" in str(exc_info.value)
         assert exc_info.value.status_code == 403
 
+    def test_upsert_raises_authorization_error(self) -> None:
+        """
+        It raises AuthorizationError for upsert operation.
+        """
+        dataset = create_mock_cart_dataset()
+        with pytest.raises(AuthorizationError) as exc_info:
+            dataset.upsert()
+        assert "not authorized to upsert" in str(exc_info.value)
+        assert exc_info.value.status_code == 403
+
+    def test_purge_raises_authorization_error(self) -> None:
+        """
+        It raises AuthorizationError for purge operation.
+        """
+        dataset = create_mock_cart_dataset()
+        with pytest.raises(AuthorizationError) as exc_info:
+            dataset.purge()
+        assert "not authorized to purge" in str(exc_info.value)
+        assert exc_info.value.status_code == 403
+
+    def test_list_raises_authorization_error(self) -> None:
+        """
+        It raises AuthorizationError for list operation.
+        """
+        dataset = create_mock_cart_dataset()
+        with pytest.raises(AuthorizationError) as exc_info:
+            dataset.list()
+        assert "not authorized to list" in str(exc_info.value)
+        assert exc_info.value.status_code == 403
+
 
 class TestGraspIngressDatasetUnauthorized:
     """Tests for GraspIngressDataset unauthorized operations."""
@@ -103,4 +133,34 @@ class TestGraspIngressDatasetUnauthorized:
         with pytest.raises(AuthorizationError) as exc_info:
             dataset.rename()
         assert "not authorized to rename" in str(exc_info.value)
+        assert exc_info.value.status_code == 403
+
+    def test_upsert_raises_authorization_error(self) -> None:
+        """
+        It raises AuthorizationError for upsert operation.
+        """
+        dataset = create_mock_ingress_dataset()
+        with pytest.raises(AuthorizationError) as exc_info:
+            dataset.upsert()
+        assert "not authorized to upsert" in str(exc_info.value)
+        assert exc_info.value.status_code == 403
+
+    def test_purge_raises_authorization_error(self) -> None:
+        """
+        It raises AuthorizationError for purge operation.
+        """
+        dataset = create_mock_ingress_dataset()
+        with pytest.raises(AuthorizationError) as exc_info:
+            dataset.purge()
+        assert "not authorized to purge" in str(exc_info.value)
+        assert exc_info.value.status_code == 403
+
+    def test_list_raises_authorization_error(self) -> None:
+        """
+        It raises AuthorizationError for list operation.
+        """
+        dataset = create_mock_ingress_dataset()
+        with pytest.raises(AuthorizationError) as exc_info:
+            dataset.list()
+        assert "not authorized to list" in str(exc_info.value)
         assert exc_info.value.status_code == 403

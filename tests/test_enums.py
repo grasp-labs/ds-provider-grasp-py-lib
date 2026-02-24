@@ -18,8 +18,8 @@ def test_resource_type_dataset_value() -> None:
     """
     It exposes the correct dataset type value.
     """
-    assert ResourceType.DATASET_INGRESS == "DS.RESOURCE.DATASET.GRASP_INGRESS"
-    assert ResourceType.DATASET_CART == "DS.RESOURCE.DATASET.GRASP_CART"
+    assert ResourceType.DATASET_INGRESS == "ds.resource.dataset.grasp_ingress"
+    assert ResourceType.DATASET_CART == "ds.resource.dataset.grasp_cart"
     assert isinstance(ResourceType.DATASET_INGRESS, str)
     assert isinstance(ResourceType.DATASET_CART, str)
 

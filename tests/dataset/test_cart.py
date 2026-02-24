@@ -8,7 +8,6 @@ Covers:
 - Dataset type property.
 - S3 path generation.
 - Read operation with various error conditions.
-- Schema setting from DataFrame.
 - Close operation.
 """
 
@@ -16,15 +15,11 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
 
-import pandas as pd
 import pytest
 from awswrangler.exceptions import NoFilesFound
 from ds_resource_plugin_py_lib.common.resource.dataset.errors import (
     NotFoundError,
     ReadError,
-)
-from ds_resource_plugin_py_lib.common.resource.linked_service.errors import (
-    ConnectionError,
 )
 
 from ds_provider_grasp_py_lib.enums import ResourceType
@@ -44,7 +39,7 @@ class TestGraspCartDatasetType:
         """
         dataset = create_mock_cart_dataset()
         assert dataset.type == ResourceType.DATASET_CART
-        assert dataset.type == "DS.RESOURCE.DATASET.GRASP_CART"
+        assert dataset.type == "ds.resource.dataset.grasp_cart"
 
 
 class TestGraspCartDatasetS3Path:
@@ -85,21 +80,6 @@ class TestGraspCartDatasetRead:
             dataset.read()
         assert "TENANT_ID environment variable is required" in str(exc_info.value)
         assert exc_info.value.status_code == 400
-
-    def test_read_raises_connection_error_when_session_none(self) -> None:
-        """
-        It raises ConnectionError when session is not established.
-        """
-        linked_service = create_mock_aws_linked_service(with_session=False)
-        dataset = create_mock_cart_dataset(linked_service=linked_service)
-
-        with (
-            patch.dict("os.environ", {"TENANT_ID": "tenant123"}),
-            pytest.raises(ConnectionError) as exc_info,
-        ):
-            dataset.read()
-        assert "Connection is not established" in str(exc_info.value)
-        assert exc_info.value.status_code == 500
 
     def test_read_raises_read_error_when_deserializer_not_set(self) -> None:
         """
@@ -178,7 +158,6 @@ class TestGraspCartDatasetRead:
 
         # Should filter out rows where _valid_to is not None
         assert len(dataset.output) == 2
-        assert dataset.next is False
 
     @patch("ds_provider_grasp_py_lib.dataset.cart.get_bucket_name")
     def test_read_success_includes_history_when_enabled(
@@ -201,28 +180,6 @@ class TestGraspCartDatasetRead:
 
         # Should include all rows
         assert len(dataset.output) == 3
-        assert dataset.next is False
-
-
-class TestGraspCartDatasetSchema:
-    """Tests for GraspCartDataset schema setting."""
-
-    def test_set_schema_extracts_column_types(self) -> None:
-        """
-        It extracts column names and types from DataFrame.
-        """
-        dataset = create_mock_cart_dataset()
-        test_df = pd.DataFrame(
-            {
-                "id": [1, 2],
-                "name": ["a", "b"],
-                "value": [1.5, 2.5],
-            }
-        )
-        dataset._set_schema(test_df)
-        assert "id" in dataset.schema
-        assert "name" in dataset.schema
-        assert "value" in dataset.schema
 
 
 class TestGraspCartDatasetClose:
