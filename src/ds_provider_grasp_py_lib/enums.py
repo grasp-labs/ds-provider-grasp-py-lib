@@ -6,7 +6,7 @@ Constants for GRASP provider.
 
 Example:
     >>> ResourceType.DATASET_CART
-    'ds.resource.dataset.grasp_cart'
+    'ds.resource.dataset.grasp-cart'
 """
 
 from enum import StrEnum
