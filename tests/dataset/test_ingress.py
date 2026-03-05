@@ -39,7 +39,7 @@ class TestGraspIngressDatasetType:
         """
         dataset = create_mock_ingress_dataset()
         assert dataset.type == ResourceType.DATASET_INGRESS
-        assert dataset.type == "ds.resource.dataset.grasp_ingress"
+        assert dataset.type == "ds.resource.dataset.grasp-ingress"
 
 
 class TestGraspIngressDatasetS3Path:
