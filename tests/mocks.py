@@ -115,14 +115,14 @@ def create_mock_cart_dataset(
         "linked_service": cast("Any", linked_service),
         "settings": settings,
     }
-    if deserializer is not _UNSET:
-        dataset_kwargs["deserializer"] = deserializer
-    if serializer is not _UNSET:
-        dataset_kwargs["serializer"] = serializer
 
     dataset = GraspCartDataset(
         **dataset_kwargs,
     )
+    if deserializer is not _UNSET:
+        dataset.deserializer = deserializer
+    if serializer is not _UNSET:
+        dataset.serializer = serializer
     return dataset
 
 

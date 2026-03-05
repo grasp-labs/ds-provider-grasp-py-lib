@@ -35,7 +35,7 @@ Example:
     >>> data = dataset.output
 """
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from os import getenv
 from typing import Any, Generic, NoReturn, TypeVar
 
@@ -99,12 +99,8 @@ class GraspCartDataset(
     linked_service: AWSLinkedServiceType
     settings: GraspCartDatasetSettingsType
 
-    serializer: AwsWranglerSerializer | None = field(
-        default_factory=lambda: AwsWranglerSerializer(format=DatasetStorageFormatType.PARQUET),
-    )
-    deserializer: AwsWranglerDeserializer | None = field(
-        default_factory=lambda: AwsWranglerDeserializer(format=DatasetStorageFormatType.PARQUET),
-    )
+    def __post_init__(self) -> None:
+        self.deserializer = AwsWranglerDeserializer(format=DatasetStorageFormatType.PARQUET)
 
     @property
     def type(self) -> ResourceType:
