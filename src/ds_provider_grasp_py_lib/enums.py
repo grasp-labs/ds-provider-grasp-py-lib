@@ -17,5 +17,5 @@ class ResourceType(StrEnum):
     Constants for GRASP provider.
     """
 
-    DATASET_CART = "ds.resource.dataset.grasp_cart"
-    DATASET_INGRESS = "ds.resource.dataset.grasp_ingress"
+    DATASET_CART = "ds.resource.dataset.grasp-cart"
+    DATASET_INGRESS = "ds.resource.dataset.grasp-ingress"

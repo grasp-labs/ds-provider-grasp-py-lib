@@ -39,7 +39,7 @@ class TestGraspCartDatasetType:
         """
         dataset = create_mock_cart_dataset()
         assert dataset.type == ResourceType.DATASET_CART
-        assert dataset.type == "ds.resource.dataset.grasp_cart"
+        assert dataset.type == "ds.resource.dataset.grasp-cart"
 
 
 class TestGraspCartDatasetS3Path:
