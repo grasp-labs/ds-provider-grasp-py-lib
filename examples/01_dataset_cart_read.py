@@ -15,6 +15,7 @@ import logging
 from os import environ
 import uuid
 
+from dotenv import load_dotenv
 from ds_common_logger_py_lib import Logger
 from ds_provider_aws_py_lib.linked_service.aws import (
     AWSLinkedService,
@@ -37,6 +38,8 @@ Logger.configure(
 )
 logger = Logger.get_logger(__name__)
 
+load_dotenv()
+
 
 def main() -> None:
     """Main function demonstrating Grasp Cart dataset read operation."""
@@ -49,23 +52,22 @@ def main() -> None:
             name="aws-linked-service",
             version="1.0.0",
             settings=AWSLinkedServiceSettings(
-                access_key_id="****************",
-                access_key_secret="****************",
+                access_key_id=environ.get("AWS_ACCESS_KEY_ID", ""),
+                access_key_secret=environ.get("AWS_ACCESS_KEY_SECRET", ""),
                 region="eu-north-1",
-                account_id="****************",
+                account_id=environ.get("AWS_ACCOUNT_ID", ""),
             ),
         ),
         settings=GraspCartDatasetSettings(
-            owner_id="****************",
-            product_group_name="****************",
-            product_name="****************",
-            version="****************",
+            owner_id=environ.get("OWNER_ID"),
+            product_group_name=environ.get("PRODUCT_GROUP_NAME", ""),
+            product_name=environ.get("PRODUCT_NAME", ""),
+            version=environ.get("VERSION", ""),
             include_history=False,
         ),
     )
 
     try:
-        environ["TENANT_ID"] = "****************"
         dataset.linked_service.connect()
         dataset.read()
     except Exception as exc:

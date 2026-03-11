@@ -15,6 +15,7 @@ import logging
 from os import environ
 import uuid
 
+from dotenv import load_dotenv
 from ds_common_logger_py_lib import Logger
 from ds_provider_aws_py_lib.linked_service.aws import (
     AWSLinkedService,
@@ -39,6 +40,8 @@ Logger.configure(
 )
 logger = Logger.get_logger(__name__)
 
+load_dotenv()
+
 
 def main() -> None:
     """Main function demonstrating Grasp Ingress dataset read operation."""
@@ -51,10 +54,10 @@ def main() -> None:
             name="aws-linked-service",
             version="1.0.0",
             settings=AWSLinkedServiceSettings(
-                access_key_id="****************",
-                access_key_secret="****************",
+                access_key_id=environ.get("AWS_ACCESS_KEY_ID", ""),
+                access_key_secret=environ.get("AWS_ACCESS_KEY_SECRET", ""),
                 region="eu-north-1",
-                account_id="****************",
+                account_id=environ.get("AWS_ACCOUNT_ID", ""),
             ),
         ),
         deserializer=AwsWranglerDeserializer(
@@ -64,8 +67,6 @@ def main() -> None:
     )
 
     try:
-        environ["TENANT_ID"] = "****************"
-        environ["SESSION_ID"] = "****************"
         dataset.linked_service.connect()
         dataset.read()
     except Exception as exc:
