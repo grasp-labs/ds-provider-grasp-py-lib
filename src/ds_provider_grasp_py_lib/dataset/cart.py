@@ -134,9 +134,9 @@ class GraspCartDataset(
             f"s3://{bucket}/datalake/cart/{self.settings.product_group_name}/"
             f"{self.settings.version}/{tenant_id}/{self.settings.product_name}/"
         )
-        if self.settings.owner_id:
-            return f"{base_path}{self.settings.owner_id}/data/"
-        return f"{base_path}*/data/*.parquet"
+        if self.settings.owner_id is None:
+            return f"{base_path}*/data/*.parquet"
+        return f"{base_path}{self.settings.owner_id}/data/"
 
     def create(self) -> None:
         raise AuthorizationError(
