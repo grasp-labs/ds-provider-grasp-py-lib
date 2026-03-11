@@ -64,7 +64,7 @@ class GraspCartDatasetSettings(DatasetSettings):
     Settings for Grasp Cart dataset operations.
     """
 
-    owner_id: str
+    owner_id: str | None = None
     """The owner ID of the cart."""
     product_group_name: str
     """The product group name of the cart."""
@@ -100,19 +100,43 @@ class GraspCartDataset(
     settings: GraspCartDatasetSettingsType
 
     def __post_init__(self) -> None:
+        """
+        Configure dataset internals after dataclass initialization.
+
+        The cart dataset always reads parquet data, so the deserializer is
+        forced to the awswrangler parquet implementation.
+        """
         self.deserializer = AwsWranglerDeserializer(format=DatasetStorageFormatType.PARQUET)
 
     @property
     def type(self) -> ResourceType:
+        """
+        Return the dataset resource type.
+
+        Returns:
+            ResourceType: The cart dataset resource type.
+        """
         return ResourceType.DATASET_CART
 
     def _get_s3_path(self, tenant_id: str) -> str:
+        """
+        Build the S3 path used for cart reads.
+
+        Args:
+            tenant_id: The tenant identifier used in the cart storage path.
+
+        Returns:
+            str: Owner-specific path when owner_id is set, otherwise a wildcard
+                path that matches parquet files across all owners.
+        """
         bucket = get_bucket_name()
-        return (
+        base_path = (
             f"s3://{bucket}/datalake/cart/{self.settings.product_group_name}/"
             f"{self.settings.version}/{tenant_id}/{self.settings.product_name}/"
-            f"{self.settings.owner_id}/data/"
         )
+        if self.settings.owner_id:
+            return f"{base_path}{self.settings.owner_id}/data/"
+        return f"{base_path}*/data/*.parquet"
 
     def create(self) -> None:
         raise AuthorizationError(
@@ -245,6 +269,6 @@ class GraspCartDataset(
 
     def close(self) -> None:
         """
-        Close the dataset.
+        Close the dataset linked service connection.
         """
         self.linked_service.close()

@@ -64,6 +64,25 @@ class TestGraspCartDatasetS3Path:
         expected = "s3://test-bucket/datalake/cart/group-a/2.0/tenant456/product-x/owner123/data/"
         assert path == expected
 
+    @patch("ds_provider_grasp_py_lib.dataset.cart.get_bucket_name")
+    def test_get_s3_path_generates_wildcard_path_when_owner_id_missing(
+        self,
+        mock_get_bucket: MagicMock,
+    ) -> None:
+        """
+        It generates a wildcard owner path when owner_id is not provided.
+        """
+        mock_get_bucket.return_value = "test-bucket"
+        dataset = create_mock_cart_dataset(
+            owner_id=None,
+            product_group_name="group-a",
+            product_name="product-x",
+            version="2.0",
+        )
+        path = dataset._get_s3_path(tenant_id="tenant456")
+        expected = "s3://test-bucket/datalake/cart/group-a/2.0/tenant456/product-x/*/data/*.parquet"
+        assert path == expected
+
 
 class TestGraspCartDatasetRead:
     """Tests for GraspCartDataset read operation."""
