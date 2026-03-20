@@ -10,6 +10,7 @@ dependencies = [
     "ds-resource-plugin-py-lib>=0.1.0rc1,<1.0.0",
     "ds-common-logger-py-lib>=0.1.0a5,<1.0.0",
     "ds-provider-aws-py-lib>=0.1.0a5,<1.0.0",
+    "ds-protocol-http-py-lib>=0.1.0a5,<1.0.0",
     "pandas>=2.2.0,<3.0.0",
 ]
 requires-python = ">=3.11"

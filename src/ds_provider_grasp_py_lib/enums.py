@@ -19,3 +19,5 @@ class ResourceType(StrEnum):
 
     DATASET_CART = "ds.resource.dataset.grasp-cart"
     DATASET_INGRESS = "ds.resource.dataset.grasp-ingress"
+
+    LINKED_SERVICE_IDENTITY = "ds.linked-service.grasp-identity"
