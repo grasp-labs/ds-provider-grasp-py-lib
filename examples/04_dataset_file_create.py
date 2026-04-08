@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import logging
 import uuid
+from io import BytesIO
 
 import pandas as pd
 from ds_common_logger_py_lib import Logger
@@ -45,7 +46,7 @@ def main() -> None:
             name="http-linked-service",
             version="1.0.0",
             settings=HttpLinkedServiceSettings(
-                host="https://dev.aic-project.com/api/file/",
+                host=None,
                 auth_type=AuthType.NO_AUTH,
                 headers={
                     "Cookie": "access_token=<ACCESS_TOKEN>",
@@ -53,6 +54,7 @@ def main() -> None:
             ),
         ),
         settings=GraspFileDatasetSettings(
+            url="https://dev.aic-project.com/api/file/file/",
             create=CreateSettings(
                 acl={
                     "owners": [
@@ -63,11 +65,9 @@ def main() -> None:
                 description="test example4",
                 file_path="test4",
                 version="v1.0.0",
+                content = BytesIO(pd.DataFrame([{"test": "4"}]).to_json(orient="records").encode())
             )
         ),
-    )
-    dataset.input = pd.DataFrame(
-       [{"test": "4"}]
     )
     dataset.linked_service.connect()
     dataset.create()

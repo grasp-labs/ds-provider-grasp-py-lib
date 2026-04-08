@@ -7,7 +7,7 @@ Grasp File Dataset
 This module implements a generic GRASP file dataset.
 The dataset can read and create files via grasp API.
 """
-
+import io
 from dataclasses import dataclass, field
 from typing import Any, Generic, NoReturn, TypeVar
 
@@ -33,7 +33,6 @@ class CreateSettings:
     """
     Settings for create operations.
     """
-
     acl: dict[str, Any] | None = field(default_factory=dict)
     description: str | None = None
     file_path: str | None = None
@@ -41,6 +40,9 @@ class CreateSettings:
     status: str | None = field(default="active")
     tags: dict[str, Any] | None = field(default_factory=dict)
     version: str | None = field(default="1.0.0")
+
+    content: io.BytesIO | None = field(default=None)
+    """File content to be uploaded."""
 
 
 @dataclass(kw_only=True)
@@ -68,7 +70,7 @@ class ReadSettings:
 class GraspFileDatasetSettings(DatasetSettings):
     """Settings for Grasp file dataset operations."""
 
-    endpoint: str = field(default="file/")
+    url: str | None = field(default="https://grasp-daas.com/api/file-dev/v2/file/")
     create: CreateSettings = field(default_factory=CreateSettings)
     read: ReadSettings = field(default_factory=ReadSettings)
 
@@ -106,6 +108,11 @@ class GraspFileDataset(
             "settings": self.settings.serialize(),
             **extra,
         }
+
+    def _base_url(self) -> str:
+        if not self.settings.url:
+            raise ValueError("File dataset settings.url is required")
+        return self.settings.url.rstrip("/") + "/"
 
     def _read_params(self) -> dict[str, Any]:
         """Build query parameters for file listing from read settings."""
@@ -150,11 +157,12 @@ class GraspFileDataset(
         Read the file from the file_uri.
         :return: None
         """
-        logger.debug(f"Reading files form {self.linked_service.settings.host}")
+        base_url = self._base_url()
+        logger.debug(f"Reading files from {base_url}")
 
         response = self.linked_service.connection.request(
             method="GET",
-            url=f"{self.linked_service.settings.host}{self.settings.endpoint}",
+            url=base_url,
             headers=self.linked_service.settings.headers,
             params=self._read_params(),
         )
@@ -163,7 +171,7 @@ class GraspFileDataset(
         if self.settings.read.download_file:
             for file in files:
                 file_id = file["id"]
-                url = f"{self.linked_service.settings.host}{self.settings.endpoint}{file_id}/content/"
+                url = f"{base_url}{file_id}/content/"
                 try:
                     response = self.linked_service.connection.request(
                         method="GET",
@@ -258,10 +266,11 @@ class GraspFileDataset(
             "tags": self.settings.create.tags,
             "version": self.settings.create.version,
         }
+        base_url = self._base_url()
         logger.info(f"Creating file metadata: {json}")
         response = self.linked_service.connection.request(
             method="POST",
-            url=f"{self.linked_service.settings.host}{self.settings.endpoint}",
+            url=base_url,
             headers=self.linked_service.settings.headers,
             json=json,
         )
@@ -277,18 +286,18 @@ class GraspFileDataset(
         headers = self.linked_service.settings.headers
         headers.update(
             {
-                "content_type": "application/octet-stream",
                 "Content-Type": "application/octet-stream",
                 "accept": "*/*",
             }
         )
-        url = f"{self.linked_service.settings.host}{self.settings.endpoint}{metadata['id']}/content/"
+        base_url = self._base_url()
+        url = f"{base_url}{metadata['id']}/content/"
 
         response = self.linked_service.connection.request(
             method="PUT",
             url=url,
             headers=headers,
-            data=self.input.to_json(orient="records").encode(),
+            data=self.settings.create.content,
         )
         data: dict[str, Any] = response.json()
         return data

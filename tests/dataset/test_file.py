@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from io import BytesIO
 from unittest.mock import MagicMock
 
 import pytest
@@ -154,6 +155,14 @@ class TestGraspFileDatasetInternals:
         assert "settings" in details
         assert details["operation"] == "read"
 
+    def test_base_url_raises_when_settings_url_is_missing(self) -> None:
+        """It raises ValueError when settings.url is not configured."""
+        dataset = create_mock_file_dataset()
+        dataset.settings.url = None
+
+        with pytest.raises(ValueError, match="File dataset settings.url is required"):
+            dataset._base_url()
+
     def test_create_metadata_posts_payload_and_cleans_temp_fields(self) -> None:
         """It posts metadata to API using nested create settings."""
         linked_service = create_mock_http_linked_service(headers={"Authorization": "Bearer token"})
@@ -173,11 +182,12 @@ class TestGraspFileDatasetInternals:
         assert request_kwargs["json"]["file_path"] == "folder/test"
 
     def test_upload_file_content_puts_json_bytes_and_returns_response(self) -> None:
-        """It uploads JSON-encoded input content and returns API response payload."""
+        """It uploads content from settings.create.content and returns API response payload."""
         linked_service = create_mock_http_linked_service(headers={"Authorization": "Bearer token"})
         linked_service.connection.request.return_value = MockHTTPResponse(json_data={"ok": True})
         dataset = create_mock_file_dataset(linked_service=linked_service)
-        dataset.input = create_test_dataframe(rows=1, with_valid_to=False)
+        content = BytesIO(b'{"test":"4"}')
+        dataset.settings.create.content = content
 
         response_payload = dataset._upload_file_content({"id": "file-1"})
 
@@ -186,7 +196,7 @@ class TestGraspFileDatasetInternals:
         request_kwargs = linked_service.connection.request.call_args.kwargs
         assert request_kwargs["method"] == "PUT"
         assert request_kwargs["url"] == "https://grasp.example/api/file/file-1/content/"
-        assert isinstance(request_kwargs["data"], bytes)
+        assert request_kwargs["data"] is content
         assert request_kwargs["headers"]["Content-Type"] == "application/octet-stream"
         assert request_kwargs["headers"]["accept"] == "*/*"
 

@@ -228,7 +228,7 @@ def create_mock_ingress_dataset(
 
 
 def create_mock_file_dataset(
-    endpoint: str = "file/",
+    url: str = "https://grasp.example/api/file/",
     download_file: bool = True,
     linked_service: MockHTTPLinkedService | None = None,
     deserializer: Any = _UNSET,
@@ -238,7 +238,7 @@ def create_mock_file_dataset(
     Create a mock GraspFileDataset for testing.
 
     Args:
-        endpoint: Endpoint path used by the file API.
+        url: Base file API URL used by the dataset.
         download_file: Whether file content should be downloaded.
         linked_service: Optional linked service. If None, creates a mock one.
         deserializer: Optional deserializer.
@@ -251,7 +251,7 @@ def create_mock_file_dataset(
         linked_service = create_mock_http_linked_service()
 
     settings = GraspFileDatasetSettings(
-        endpoint=endpoint,
+        url=url,
         read=ReadSettings(download_file=download_file),
     )
     dataset_kwargs: dict[str, Any] = {

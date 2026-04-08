@@ -45,7 +45,7 @@ def main() -> None:
             name="http-linked-service",
             version="1.0.0",
             settings=HttpLinkedServiceSettings(
-                host="https://dev.aic-project.com/api/file/",
+                host=None,
                 auth_type=AuthType.NO_AUTH,
                 headers={
                     "Cookie": "access_token=<ACCESS_TOKEN>",
@@ -53,6 +53,7 @@ def main() -> None:
             ),
         ),
         settings=GraspFileDatasetSettings(
+            url="https://dev.aic-project.com/api/file/file/",
             read=ReadSettings(download_file=True, limit=2),
         ),
     )
