@@ -21,6 +21,7 @@ from ds_protocol_http_py_lib.enums import AuthType
 from ds_provider_grasp_py_lib.dataset.file import (
     GraspFileDataset,
     GraspFileDatasetSettings,
+    ReadSettings,
 )
 
 Logger.configure(
@@ -52,7 +53,7 @@ def main() -> None:
             ),
         ),
         settings=GraspFileDatasetSettings(
-            download_file=True,
+            read=ReadSettings(download_file=True),
         ),
     )
 

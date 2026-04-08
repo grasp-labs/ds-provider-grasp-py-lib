@@ -19,6 +19,7 @@ from ds_common_logger_py_lib import Logger
 from ds_protocol_http_py_lib import HttpLinkedService, HttpLinkedServiceSettings
 from ds_protocol_http_py_lib.enums import AuthType
 from ds_provider_grasp_py_lib.dataset.file import (
+    CreateSettings,
     GraspFileDataset,
     GraspFileDatasetSettings,
 )
@@ -52,15 +53,17 @@ def main() -> None:
             ),
         ),
         settings=GraspFileDatasetSettings(
-            acl={
-                "owners": [
-                    "jakub-graspdemo@test.com"
-                ],
-                "viewers": []
-            },
-            description="test example4",
-            file_path="test4",
-            version="v1.0.0"
+            create=CreateSettings(
+                acl={
+                    "owners": [
+                        "jakub-graspdemo@test.com"
+                    ],
+                    "viewers": []
+                },
+                description="test example4",
+                file_path="test4",
+                version="v1.0.0",
+            )
         ),
     )
     dataset.input = pd.DataFrame(

@@ -31,12 +31,13 @@ class TestGraspFileDatasetType:
 class TestGraspFileDatasetRead:
     """Tests for GraspFileDataset read operation."""
 
-    def test_read_raises_attribute_error_when_connection_not_set(self) -> None:
-        """It currently fails with AttributeError when linked_service.connection is None."""
+    def test_read_raises_connection_error_when_connection_not_set(self) -> None:
+        """It raises ConnectionError when linked_service.connection is None."""
         linked_service = create_mock_http_linked_service(with_connection=False)
         dataset = create_mock_file_dataset(linked_service=linked_service)
-        with pytest.raises(AttributeError):
+        with pytest.raises(ConnectionError) as exc_info:
             dataset.read()
+        assert "Session is not initialized" in str(exc_info.value)
 
     def test_read_returns_files_without_content_when_download_disabled(self) -> None:
         """It returns file metadata only when download_file=False."""
@@ -120,22 +121,13 @@ class TestGraspFileDatasetInternals:
         assert "settings" in details
         assert details["operation"] == "read"
 
-    def test_get_connection_raises_when_missing(self) -> None:
-        """It raises ConnectionError when linked service connection is not established."""
-        linked_service = create_mock_http_linked_service(with_connection=False)
-        dataset = create_mock_file_dataset(linked_service=linked_service)
-        with pytest.raises(ConnectionError) as exc_info:
-            dataset._get_connection()
-        assert "not established" in str(exc_info.value)
-        assert exc_info.value.status_code == 503
-
     def test_create_metadata_posts_payload_and_cleans_temp_fields(self) -> None:
-        """It posts metadata to API and resets temporary settings attributes."""
+        """It posts metadata to API using nested create settings."""
         linked_service = create_mock_http_linked_service(headers={"Authorization": "Bearer token"})
         linked_service.connection.request.return_value = MockHTTPResponse(json_data={"id": "file-1"})
         dataset = create_mock_file_dataset(linked_service=linked_service)
-        dataset.settings.description = "file desc"
-        dataset.settings.file_path = "folder/test"
+        dataset.settings.create.description = "file desc"
+        dataset.settings.create.file_path = "folder/test"
 
         response_payload = dataset._create_metadata()
 
@@ -146,8 +138,6 @@ class TestGraspFileDatasetInternals:
         assert request_kwargs["url"] == "https://grasp.example/api/file/"
         assert request_kwargs["json"]["description"] == "file desc"
         assert request_kwargs["json"]["file_path"] == "folder/test"
-        assert hasattr(dataset.settings, "json") and dataset.settings.json is None
-        assert hasattr(dataset.settings, "headers") and dataset.settings.headers is None
 
     def test_upload_file_content_puts_json_bytes_and_returns_response(self) -> None:
         """It uploads JSON-encoded input content and returns API response payload."""

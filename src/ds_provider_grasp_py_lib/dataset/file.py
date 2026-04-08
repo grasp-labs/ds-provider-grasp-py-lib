@@ -29,12 +29,11 @@ logger = Logger.get_logger(__name__, package=True)
 
 
 @dataclass(kw_only=True)
-class GraspFileDatasetSettings(DatasetSettings):
-    """Settings for Grasp file dataset operations."""
+class CreateSettings:
+    """
+    Settings for create operations.
+    """
 
-    endpoint: str = field(default="file/")
-
-    # Create file properties # todo
     acl: Dict | None = field(default_factory=dict)
     description: str | None = None
     file_path: str | None = None
@@ -43,8 +42,21 @@ class GraspFileDatasetSettings(DatasetSettings):
     tags: Dict | None = field(default_factory=dict)
     version: str | None = field(default="1.0.0")
 
-    # Read file properties # todo
+
+@dataclass(kw_only=True)
+class ReadSettings:
+    """
+    Settings for read operations.
+    """
     download_file: bool = True
+
+@dataclass(kw_only=True)
+class GraspFileDatasetSettings(DatasetSettings):
+    """Settings for Grasp file dataset operations."""
+
+    endpoint: str = field(default="file/")
+    create: CreateSettings = field(default_factory=CreateSettings)
+    read: ReadSettings = field(default_factory=ReadSettings)
 
 
 GraspFileDatasetSettingsType = TypeVar(
@@ -81,16 +93,6 @@ class GraspFileDataset(
             **extra,
         }
 
-    def _get_connection(self) -> Any:
-        connection = self.linked_service.connection
-        if connection is None:
-            raise ConnectionError(
-                message="Linked service connection is not established",
-                status_code=503,
-                details=self._details(),
-            )
-        return connection
-
     def create(self) -> None:
         """
         Write the content of the dataset to the file.
@@ -114,13 +116,12 @@ class GraspFileDataset(
         )
 
         files = response.json()["data"]
-        if self.settings.download_file:
+        if self.settings.read.download_file:
             for file in files:
                 file_id = file["id"]
                 url = f"{self.linked_service.settings.host}{self.settings.endpoint}{file_id}/content/"
                 try:
-                    connection = self._get_connection()
-                    response = connection.request(
+                    response = self.linked_service.connection.request(
                         method="GET",
                         url=url,
                         headers=self.linked_service.settings.headers,
@@ -206,17 +207,16 @@ class GraspFileDataset(
         :return: Dict
         """
         json = {
-            "acl": self.settings.acl,
-            "description": self.settings.description,
-            "file_path": self.settings.file_path,
-            "metadata": self.settings.metadata,
-            "status": self.settings.status,
-            "tags": self.settings.tags,
-            "version": self.settings.version,
+            "acl": self.settings.create.acl,
+            "description": self.settings.create.description,
+            "file_path": self.settings.create.file_path,
+            "metadata": self.settings.create.metadata,
+            "status": self.settings.create.status,
+            "tags": self.settings.create.tags,
+            "version": self.settings.create.version,
         }
         logger.info(f"Creating file metadata: {json}")
-        connection = self._get_connection()
-        response = connection.request(
+        response = self.linked_service.connection.request(
             method="POST",
             url=f"{self.linked_service.settings.host}{self.settings.endpoint}",
             headers=self.linked_service.settings.headers,
@@ -224,9 +224,6 @@ class GraspFileDataset(
         )
         data = response.json()
         logger.info(f"File metadata created: {data}")
-        # Cleanup properties
-        self.settings.json = None
-        self.settings.headers = None
         return data
 
     def _upload_file_content(self, metadata: Dict) -> Dict:
@@ -242,8 +239,7 @@ class GraspFileDataset(
         })
         url = f"{self.linked_service.settings.host}{self.settings.endpoint}{metadata['id']}/content/"
 
-        connection = self._get_connection()
-        response = connection.request(
+        response = self.linked_service.connection.request(
             method="PUT",
             url=url,
             headers=headers,

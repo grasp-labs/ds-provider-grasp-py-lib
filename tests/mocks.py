@@ -15,12 +15,14 @@ from typing import Any, cast
 from unittest.mock import MagicMock
 
 import pandas as pd
+from ds_resource_plugin_py_lib.common.resource.linked_service.errors import ConnectionError
 
 from ds_provider_grasp_py_lib.dataset.cart import (
     GraspCartDataset,
     GraspCartDatasetSettings,
 )
 from ds_provider_grasp_py_lib.dataset.file import (
+    ReadSettings,
     GraspFileDataset,
     GraspFileDatasetSettings,
 )
@@ -95,9 +97,15 @@ class MockHTTPLinkedService:
         host: str = "https://grasp.example/api/",
         headers: dict[str, str] | None = None,
     ) -> None:
-        self.connection = connection
+        self._connection = connection
         self.settings = MockHTTPSettings(host=host, headers=headers)
         self._closed = False
+
+    @property
+    def connection(self) -> MockHTTPConnection:
+        if self._connection is None:
+            raise ConnectionError(message="Session is not initialized")
+        return self._connection
 
     def close(self) -> None:
         self._closed = True
@@ -242,7 +250,10 @@ def create_mock_file_dataset(
     if linked_service is None:
         linked_service = create_mock_http_linked_service()
 
-    settings = GraspFileDatasetSettings(endpoint=endpoint, download_file=download_file)
+    settings = GraspFileDatasetSettings(
+        endpoint=endpoint,
+        read=ReadSettings(download_file=download_file),
+    )
     dataset_kwargs: dict[str, Any] = {
         "id": uuid.uuid4(),
         "name": "test-file-dataset",
