@@ -9,7 +9,7 @@ The dataset can read and create files via grasp API.
 """
 
 from dataclasses import dataclass, field
-from typing import Any, Generic, NoReturn, TypeVar, Dict
+from typing import Any, Generic, NoReturn, TypeVar
 
 import pandas as pd
 from ds_common_logger_py_lib import Logger
@@ -19,7 +19,7 @@ from ds_resource_plugin_py_lib.common.resource.dataset import (
     TabularDataset,
 )
 from ds_resource_plugin_py_lib.common.resource.errors import ResourceException
-from ds_resource_plugin_py_lib.common.resource.linked_service.errors import AuthorizationError, ConnectionError
+from ds_resource_plugin_py_lib.common.resource.linked_service.errors import AuthorizationError
 from ds_resource_plugin_py_lib.common.serde.deserialize import PandasDeserializer
 from ds_resource_plugin_py_lib.common.serde.serialize import PandasSerializer
 
@@ -34,12 +34,12 @@ class CreateSettings:
     Settings for create operations.
     """
 
-    acl: Dict | None = field(default_factory=dict)
+    acl: dict | None = field(default_factory=dict)
     description: str | None = None
     file_path: str | None = None
-    metadata: Dict | None = field(default_factory=dict)
+    metadata: dict | None = field(default_factory=dict)
     status: str | None = field(default="active")
-    tags: Dict | None = field(default_factory=dict)
+    tags: dict | None = field(default_factory=dict)
     version: str | None = field(default="1.0.0")
 
 
@@ -50,11 +50,11 @@ class ReadSettings:
     """
 
     download_file: bool = True
-    limit: int  = 500
+    limit: int = 500
     offset: int = 0
     order_by: str | None = None
-    tags: Dict[str, str] | None = field(default_factory=dict)
-    meta: Dict[str, str] | None = field(default_factory=dict)
+    tags: dict[str, str] | None = field(default_factory=dict)
+    meta: dict[str, str] | None = field(default_factory=dict)
     id: str | None = None
     file_path: str | None = None
     created_at_gte: str | None = None
@@ -62,6 +62,7 @@ class ReadSettings:
     created_at_lte: str | None = None
     modified_at_lte: str | None = None
     status: str | None = None
+
 
 @dataclass(kw_only=True)
 class GraspFileDatasetSettings(DatasetSettings):
@@ -106,10 +107,10 @@ class GraspFileDataset(
             **extra,
         }
 
-    def _read_params(self) -> Dict[str, Any]:
+    def _read_params(self) -> dict[str, Any]:
         """Build query parameters for file listing from read settings."""
         read = self.settings.read
-        params: Dict[str, Any] = {}
+        params: dict[str, Any] = {}
 
         for key in (
             "limit",
@@ -179,7 +180,6 @@ class GraspFileDataset(
         else:
             self.output = pd.DataFrame(files)
 
-
     def update(self) -> NoReturn:
         raise AuthorizationError(
             message="You are not authorized to update a Grasp File dataset",
@@ -244,7 +244,7 @@ class GraspFileDataset(
         """Close the dataset."""
         self.linked_service.close()
 
-    def _create_metadata(self) -> Dict:
+    def _create_metadata(self) -> dict:
         """
         Create the metadata for the file.
         :return: Dict
@@ -269,17 +269,19 @@ class GraspFileDataset(
         logger.info(f"File metadata created: {data}")
         return data
 
-    def _upload_file_content(self, metadata: Dict) -> Dict:
+    def _upload_file_content(self, metadata: dict) -> dict:
         """
         Upload the file content to the file.
         :return: Dict
         """
         headers = self.linked_service.settings.headers
-        headers.update({
-            "content_type": "application/octet-stream",
-            "Content-Type": "application/octet-stream",
-            "accept": "*/*",
-        })
+        headers.update(
+            {
+                "content_type": "application/octet-stream",
+                "Content-Type": "application/octet-stream",
+                "accept": "*/*",
+            }
+        )
         url = f"{self.linked_service.settings.host}{self.settings.endpoint}{metadata['id']}/content/"
 
         response = self.linked_service.connection.request(

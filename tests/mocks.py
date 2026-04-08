@@ -22,9 +22,9 @@ from ds_provider_grasp_py_lib.dataset.cart import (
     GraspCartDatasetSettings,
 )
 from ds_provider_grasp_py_lib.dataset.file import (
-    ReadSettings,
     GraspFileDataset,
     GraspFileDatasetSettings,
+    ReadSettings,
 )
 from ds_provider_grasp_py_lib.dataset.ingress import (
     GraspIngressDataset,
@@ -177,7 +177,7 @@ def create_mock_cart_dataset(
         "id": uuid.uuid4(),
         "name": "test-cart-dataset",
         "version": "1.0.0",
-        "linked_service": cast(Any, linked_service),
+        "linked_service": cast("Any", linked_service),
         "settings": settings,
     }
 
@@ -215,7 +215,7 @@ def create_mock_ingress_dataset(
         "id": uuid.uuid4(),
         "name": "test-ingress-dataset",
         "version": "1.0.0",
-        "linked_service": cast(Any, linked_service),
+        "linked_service": cast("Any", linked_service),
         "settings": settings,
     }
     if deserializer is not _UNSET:
@@ -258,7 +258,7 @@ def create_mock_file_dataset(
         "id": uuid.uuid4(),
         "name": "test-file-dataset",
         "version": "1.0.0",
-        "linked_service": cast(Any, linked_service),
+        "linked_service": cast("Any", linked_service),
         "settings": settings,
     }
     if deserializer is not _UNSET:
