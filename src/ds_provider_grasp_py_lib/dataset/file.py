@@ -7,6 +7,7 @@ Grasp File Dataset
 This module implements a generic GRASP file dataset.
 The dataset can read and create files via grasp API.
 """
+
 import io
 from dataclasses import dataclass, field
 from typing import Any, Generic, NoReturn, TypeVar
@@ -33,6 +34,7 @@ class CreateSettings:
     """
     Settings for create operations.
     """
+
     acl: dict[str, Any] | None = field(default_factory=dict)
     description: str | None = None
     file_path: str | None = None

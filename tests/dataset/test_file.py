@@ -160,7 +160,7 @@ class TestGraspFileDatasetInternals:
         dataset = create_mock_file_dataset()
         dataset.settings.url = None
 
-        with pytest.raises(ValueError, match="File dataset settings.url is required"):
+        with pytest.raises(ValueError, match=r"File dataset settings\.url is required"):
             dataset._base_url()
 
     def test_create_metadata_posts_payload_and_cleans_temp_fields(self) -> None:
