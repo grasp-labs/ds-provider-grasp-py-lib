@@ -50,8 +50,8 @@ class ReadSettings:
     """
 
     download_file: bool = True
-    limit: int | None = None
-    offset: int | None = None
+    limit: int  = 500
+    offset: int = 0
     order_by: str | None = None
     tags: Dict[str, str] | None = field(default_factory=dict)
     meta: Dict[str, str] | None = field(default_factory=dict)
