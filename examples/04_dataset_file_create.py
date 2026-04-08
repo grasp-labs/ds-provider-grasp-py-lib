@@ -1,12 +1,12 @@
 """
-**File:** ``03_dataset_file_read.py``
-**Region:** ``examples/03_dataset_file_read``
+**File:** ``04_dataset_file_create.py``
+**Region:** ``examples/04_dataset_file_create``
 
-Example 03: Read data from a Grasp File dataset using GraspFileDataset.
+Example 04: Create a file with GraspFileDataset via the Grasp File API.
 
 This example demonstrates how to:
 - Create a Grasp File dataset
-- Read file metadata and optional content from the Grasp File API
+- Create a file record and upload content through the API
 """
 
 from __future__ import annotations
@@ -14,10 +14,10 @@ from __future__ import annotations
 import logging
 import uuid
 
+import pandas as pd
 from ds_common_logger_py_lib import Logger
 from ds_protocol_http_py_lib import HttpLinkedService, HttpLinkedServiceSettings
 from ds_protocol_http_py_lib.enums import AuthType
-
 from ds_provider_grasp_py_lib.dataset.file import (
     GraspFileDataset,
     GraspFileDatasetSettings,
@@ -34,7 +34,7 @@ logger = Logger.get_logger(__name__)
 
 
 def main() -> None:
-    """Main function demonstrating Grasp File dataset read operation."""
+    """Main function demonstrating Grasp File dataset create operation."""
     dataset = GraspFileDataset(
         id=uuid.uuid4(),
         name="file-dataset",
@@ -52,13 +52,23 @@ def main() -> None:
             ),
         ),
         settings=GraspFileDatasetSettings(
-            download_file=True,
+            acl={
+                "owners": [
+                    "jakub-graspdemo@test.com"
+                ],
+                "viewers": []
+            },
+            description="test example4",
+            file_path="test4",
+            version="v1.0.0"
         ),
     )
-
+    dataset.input = pd.DataFrame(
+       [{"test": "4"}]
+    )
     dataset.linked_service.connect()
-    dataset.read()
-    logger.info(f"Successfully performed read operation")
+    dataset.create()
+    logger.info(f"Successfully performed create operation")
     print(dataset.output)
 
 

@@ -15,7 +15,6 @@ from typing import Any, cast
 from unittest.mock import MagicMock
 
 import pandas as pd
-from ds_resource_plugin_py_lib.common.resource.dataset import DatasetStorageFormatType
 
 from ds_provider_grasp_py_lib.dataset.cart import (
     GraspCartDataset,
@@ -61,6 +60,49 @@ class MockAWSLinkedService:
         self._closed = True
 
 
+class MockHTTPResponse:
+    """Mock HTTP response with JSON payload and binary content."""
+
+    def __init__(self, json_data: dict[str, Any] | None = None, content: bytes = b"") -> None:
+        self._json_data = json_data or {}
+        self.content = content
+
+    def json(self) -> dict[str, Any]:
+        return self._json_data
+
+
+class MockHTTPConnection:
+    """Mock HTTP connection exposing request()."""
+
+    def __init__(self) -> None:
+        self.request = MagicMock()
+
+
+class MockHTTPSettings:
+    """Mock HTTP linked service settings used by Grasp file dataset."""
+
+    def __init__(self, host: str, headers: dict[str, str] | None = None) -> None:
+        self.host = host
+        self.headers = headers or {}
+
+
+class MockHTTPLinkedService:
+    """Mock HTTP linked service for file dataset tests."""
+
+    def __init__(
+        self,
+        connection: MockHTTPConnection | None = None,
+        host: str = "https://grasp.example/api/",
+        headers: dict[str, str] | None = None,
+    ) -> None:
+        self.connection = connection
+        self.settings = MockHTTPSettings(host=host, headers=headers)
+        self._closed = False
+
+    def close(self) -> None:
+        self._closed = True
+
+
 def create_mock_aws_linked_service(
     with_connection: bool = True,
 ) -> MockAWSLinkedService:
@@ -75,6 +117,16 @@ def create_mock_aws_linked_service(
     """
     connection = MockBoto3Session() if with_connection else None
     return MockAWSLinkedService(connection=connection)
+
+
+def create_mock_http_linked_service(
+    with_connection: bool = True,
+    host: str = "https://grasp.example/api/",
+    headers: dict[str, str] | None = None,
+) -> MockHTTPLinkedService:
+    """Create a mock HTTP linked service for Grasp file dataset tests."""
+    connection = MockHTTPConnection() if with_connection else None
+    return MockHTTPLinkedService(connection=connection, host=host, headers=headers)
 
 
 def create_mock_cart_dataset(
@@ -117,7 +169,7 @@ def create_mock_cart_dataset(
         "id": uuid.uuid4(),
         "name": "test-cart-dataset",
         "version": "1.0.0",
-        "linked_service": cast("Any", linked_service),
+        "linked_service": cast(Any, linked_service),
         "settings": settings,
     }
 
@@ -155,7 +207,7 @@ def create_mock_ingress_dataset(
         "id": uuid.uuid4(),
         "name": "test-ingress-dataset",
         "version": "1.0.0",
-        "linked_service": cast("Any", linked_service),
+        "linked_service": cast(Any, linked_service),
         "settings": settings,
     }
     if deserializer is not _UNSET:
@@ -168,9 +220,9 @@ def create_mock_ingress_dataset(
 
 
 def create_mock_file_dataset(
-    s3_path: str | None = "s3://test-bucket/path/data.json",
-    format: DatasetStorageFormatType = DatasetStorageFormatType.JSON,
-    linked_service: MockAWSLinkedService | None = None,
+    endpoint: str = "file/",
+    download_file: bool = True,
+    linked_service: MockHTTPLinkedService | None = None,
     deserializer: Any = _UNSET,
     serializer: Any = _UNSET,
 ) -> GraspFileDataset[Any, Any]:
@@ -178,8 +230,8 @@ def create_mock_file_dataset(
     Create a mock GraspFileDataset for testing.
 
     Args:
-        s3_path: Optional S3 path for the file dataset.
-        format: Dataset storage format.
+        endpoint: Endpoint path used by the file API.
+        download_file: Whether file content should be downloaded.
         linked_service: Optional linked service. If None, creates a mock one.
         deserializer: Optional deserializer.
         serializer: Optional serializer.
@@ -188,14 +240,14 @@ def create_mock_file_dataset(
         GraspFileDataset: A dataset instance ready for testing.
     """
     if linked_service is None:
-        linked_service = create_mock_aws_linked_service()
+        linked_service = create_mock_http_linked_service()
 
-    settings = GraspFileDatasetSettings(s3_path=s3_path, format=format)
+    settings = GraspFileDatasetSettings(endpoint=endpoint, download_file=download_file)
     dataset_kwargs: dict[str, Any] = {
         "id": uuid.uuid4(),
         "name": "test-file-dataset",
         "version": "1.0.0",
-        "linked_service": cast("Any", linked_service),
+        "linked_service": cast(Any, linked_service),
         "settings": settings,
     }
     if deserializer is not _UNSET:

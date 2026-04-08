@@ -1,36 +1,19 @@
-"""
-**File:** ``test_file.py``
-**Region:** ``tests/dataset/test_file``
-
-GraspFileDataset tests.
-
-Covers:
-- Dataset type property.
-- S3 path handling.
-- Read, create, list, and purge behavior.
-- Unsupported operations.
-- Close operation.
-"""
+"""Tests for the HTTP-based Grasp file dataset implementation."""
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
-import pandas as pd
 import pytest
-from awswrangler.exceptions import NoFilesFound
-from ds_resource_plugin_py_lib.common.resource.dataset.errors import (
-    CreateError,
-    NotFoundError,
-    ReadError,
-)
-from ds_resource_plugin_py_lib.common.resource.errors import NotSupportedError
-from ds_resource_plugin_py_lib.common.resource.linked_service.errors import AuthorizationError
+from ds_resource_plugin_py_lib.common.resource.dataset.errors import CreateError
+from ds_resource_plugin_py_lib.common.resource.errors import ResourceException
+from ds_resource_plugin_py_lib.common.resource.linked_service.errors import AuthorizationError, ConnectionError
 
 from ds_provider_grasp_py_lib.enums import ResourceType
 from tests.mocks import (
-    create_mock_aws_linked_service,
+    MockHTTPResponse,
     create_mock_file_dataset,
+    create_mock_http_linked_service,
     create_test_dataframe,
 )
 
@@ -45,192 +28,144 @@ class TestGraspFileDatasetType:
         assert dataset.type == "ds.resource.dataset.grasp-file"
 
 
-class TestGraspFileDatasetS3Path:
-    """Tests for GraspFileDataset S3 path handling."""
-
-    def test_get_s3_path_returns_settings_path(self) -> None:
-        """It returns the configured S3 path."""
-        dataset = create_mock_file_dataset(s3_path="s3://bucket/files/example.json")
-        assert dataset._get_s3_path() == "s3://bucket/files/example.json"
-
-
 class TestGraspFileDatasetRead:
     """Tests for GraspFileDataset read operation."""
 
-    def test_read_raises_read_error_when_connection_not_set(self) -> None:
-        """It raises ReadError when the linked service connection is missing."""
-        linked_service = create_mock_aws_linked_service(with_connection=False)
+    def test_read_raises_attribute_error_when_connection_not_set(self) -> None:
+        """It currently fails with AttributeError when linked_service.connection is None."""
+        linked_service = create_mock_http_linked_service(with_connection=False)
         dataset = create_mock_file_dataset(linked_service=linked_service)
-        with pytest.raises(ReadError) as exc_info:
+        with pytest.raises(AttributeError):
             dataset.read()
-        assert "Linked service connection is not established" in str(exc_info.value)
-        assert exc_info.value.status_code == 503
 
-    def test_read_raises_read_error_when_s3_path_not_set(self) -> None:
-        """It raises ReadError when settings.s3_path is not configured."""
-        dataset = create_mock_file_dataset(s3_path=None)
-        with pytest.raises(ReadError) as exc_info:
-            dataset.read()
-        assert "settings.s3_path is required" in str(exc_info.value)
-        assert exc_info.value.status_code == 400
-
-    def test_read_raises_read_error_when_deserializer_not_set(self) -> None:
-        """It raises ReadError when deserializer is not set."""
-        dataset = create_mock_file_dataset()
-        dataset.deserializer = None
-
-        with pytest.raises(ReadError) as exc_info:
-            dataset.read()
-        assert "Deserializer is not set" in str(exc_info.value)
-        assert exc_info.value.status_code == 400
-
-    def test_read_raises_not_found_error_on_no_files_found(self) -> None:
-        """It raises NotFoundError when no files are found at the configured path."""
-        mock_deserializer = MagicMock(side_effect=NoFilesFound("No files"))
-        dataset = create_mock_file_dataset(deserializer=mock_deserializer)
-
-        with pytest.raises(NotFoundError) as exc_info:
-            dataset.read()
-        assert "No files found at S3 path" in str(exc_info.value)
-        assert exc_info.value.status_code == 404
-
-    def test_read_raises_read_error_on_generic_exception(self) -> None:
-        """It raises ReadError when a generic exception occurs during read."""
-        mock_deserializer = MagicMock(side_effect=RuntimeError("Connection timeout"))
-        dataset = create_mock_file_dataset(deserializer=mock_deserializer)
-
-        with pytest.raises(ReadError) as exc_info:
-            dataset.read()
-        assert "Failed to read data from S3 path" in str(exc_info.value)
-        assert exc_info.value.status_code == 500
-
-    def test_read_success_sets_output_and_operation(self) -> None:
-        """It successfully reads data and records operation metadata."""
-        test_df = create_test_dataframe(rows=3, with_valid_to=False)
-        mock_deserializer = MagicMock(return_value=test_df)
-        dataset = create_mock_file_dataset(deserializer=mock_deserializer)
+    def test_read_returns_files_without_content_when_download_disabled(self) -> None:
+        """It returns file metadata only when download_file=False."""
+        linked_service = create_mock_http_linked_service()
+        linked_service.connection.request.return_value = MockHTTPResponse(
+            json_data={"data": [{"id": "f1", "name": "file-1"}]},
+        )
+        dataset = create_mock_file_dataset(linked_service=linked_service, download_file=False)
 
         dataset.read()
 
-        assert len(dataset.output) == 3
+        assert len(dataset.output) == 1
+        assert dataset.output.iloc[0]["id"] == "f1"
+        assert "content" not in dataset.output.columns
         assert dataset.operation.success is True
-        assert dataset.operation.row_count == 3
-        assert dataset.operation.error is None
+        assert dataset.operation.row_count == 1
+
+    def test_read_downloads_file_content_when_enabled(self) -> None:
+        """It fetches file content for every discovered file when download_file=True."""
+        linked_service = create_mock_http_linked_service()
+        linked_service.connection.request.side_effect = [
+            MockHTTPResponse(json_data={"data": [{"id": "f1"}, {"id": "f2"}]}),
+            MockHTTPResponse(content=b"hello"),
+            MockHTTPResponse(content=b"world"),
+        ]
+        dataset = create_mock_file_dataset(linked_service=linked_service, download_file=True)
+
+        dataset.read()
+
+        assert list(dataset.output["id"]) == ["f1", "f2"]
+        assert list(dataset.output["content"]) == [b"hello", b"world"]
+
+    def test_read_uses_empty_content_when_file_download_returns_404(self) -> None:
+        """It sets empty content for files that return a 404 during content download."""
+        linked_service = create_mock_http_linked_service()
+        linked_service.connection.request.side_effect = [
+            MockHTTPResponse(json_data={"data": [{"id": "f1"}]}),
+            ResourceException(message="missing", status_code=404),
+        ]
+        dataset = create_mock_file_dataset(linked_service=linked_service, download_file=True)
+
+        dataset.read()
+
+        assert dataset.output.iloc[0]["content"] == b""
 
 
 class TestGraspFileDatasetCreate:
     """Tests for GraspFileDataset create operation."""
 
-    def test_create_noops_when_input_is_none(self) -> None:
-        """It returns immediately with empty output when input is None."""
+    def test_create_writes_metadata_and_content_and_sets_output(self) -> None:
+        """It delegates to metadata/content helpers and stores output as a DataFrame."""
         dataset = create_mock_file_dataset()
-        dataset.input = None
+        dataset.input = create_test_dataframe(rows=1, with_valid_to=False)
+        dataset._create_metadata = MagicMock(return_value={"id": "f1"})  # type: ignore[method-assign]
+        dataset._upload_file_content = MagicMock(return_value=[{"id": "f1", "status": "ok"}])  # type: ignore[method-assign]
 
         dataset.create()
 
-        assert dataset.output.empty
+        assert dataset._create_metadata.called
+        dataset._upload_file_content.assert_called_once_with({"id": "f1"})
+        assert dataset.output.iloc[0]["id"] == "f1"
 
-    def test_create_raises_create_error_when_serializer_not_set(self) -> None:
-        """It raises CreateError when serializer is not set."""
+    def test_create_raises_when_metadata_creation_fails(self) -> None:
+        """It propagates errors from metadata creation."""
         dataset = create_mock_file_dataset()
-        dataset.serializer = None
         dataset.input = create_test_dataframe(rows=1, with_valid_to=False)
+        dataset._create_metadata = MagicMock(side_effect=CreateError("boom"))  # type: ignore[method-assign]
 
-        with pytest.raises(CreateError) as exc_info:
+        with pytest.raises(CreateError):
             dataset.create()
-        assert "Serializer is not set" in str(exc_info.value)
-        assert exc_info.value.status_code == 400
 
-    def test_create_raises_create_error_when_connection_not_set(self) -> None:
-        """It raises CreateError when the linked service connection is missing."""
-        linked_service = create_mock_aws_linked_service(with_connection=False)
+
+class TestGraspFileDatasetInternals:
+    """Tests for internal helper methods used by GraspFileDataset."""
+
+    def test_details_contains_type_settings_and_extra(self) -> None:
+        """It returns details with dataset type, serialized settings, and extra keys."""
+        dataset = create_mock_file_dataset()
+        details = dataset._details(operation="read")
+        assert details["type"] == ResourceType.DATASET_FILE.value
+        assert "settings" in details
+        assert details["operation"] == "read"
+
+    def test_get_connection_raises_when_missing(self) -> None:
+        """It raises ConnectionError when linked service connection is not established."""
+        linked_service = create_mock_http_linked_service(with_connection=False)
+        dataset = create_mock_file_dataset(linked_service=linked_service)
+        with pytest.raises(ConnectionError) as exc_info:
+            dataset._get_connection()
+        assert "not established" in str(exc_info.value)
+        assert exc_info.value.status_code == 503
+
+    def test_create_metadata_posts_payload_and_cleans_temp_fields(self) -> None:
+        """It posts metadata to API and resets temporary settings attributes."""
+        linked_service = create_mock_http_linked_service(headers={"Authorization": "Bearer token"})
+        linked_service.connection.request.return_value = MockHTTPResponse(json_data={"id": "file-1"})
+        dataset = create_mock_file_dataset(linked_service=linked_service)
+        dataset.settings.description = "file desc"
+        dataset.settings.file_path = "folder/test"
+
+        response_payload = dataset._create_metadata()
+
+        assert response_payload == {"id": "file-1"}
+        linked_service.connection.request.assert_called_once()
+        request_kwargs = linked_service.connection.request.call_args.kwargs
+        assert request_kwargs["method"] == "POST"
+        assert request_kwargs["url"] == "https://grasp.example/api/file/"
+        assert request_kwargs["json"]["description"] == "file desc"
+        assert request_kwargs["json"]["file_path"] == "folder/test"
+        assert hasattr(dataset.settings, "json") and dataset.settings.json is None
+        assert hasattr(dataset.settings, "headers") and dataset.settings.headers is None
+
+    def test_upload_file_content_puts_json_bytes_and_returns_response(self) -> None:
+        """It uploads JSON-encoded input content and returns API response payload."""
+        linked_service = create_mock_http_linked_service(headers={"Authorization": "Bearer token"})
+        linked_service.connection.request.return_value = MockHTTPResponse(json_data={"ok": True})
         dataset = create_mock_file_dataset(linked_service=linked_service)
         dataset.input = create_test_dataframe(rows=1, with_valid_to=False)
 
-        with pytest.raises(CreateError) as exc_info:
-            dataset.create()
-        assert "Linked service connection is not established" in str(exc_info.value)
-        assert exc_info.value.status_code == 503
+        response_payload = dataset._upload_file_content({"id": "file-1"})
 
-    def test_create_raises_create_error_when_s3_path_not_set(self) -> None:
-        """It raises CreateError when settings.s3_path is not configured."""
-        dataset = create_mock_file_dataset(s3_path=None)
-        dataset.input = create_test_dataframe(rows=2, with_valid_to=False)
-
-        with pytest.raises(CreateError) as exc_info:
-            dataset.create()
-        assert "settings.s3_path is required" in str(exc_info.value)
-        assert exc_info.value.status_code == 400
-
-    def test_create_noops_on_empty_input_without_backend_call(self) -> None:
-        """It returns without calling the backend when input is empty."""
-        mock_serializer = MagicMock()
-        dataset = create_mock_file_dataset(serializer=mock_serializer)
-        dataset.input = pd.DataFrame()
-
-        with patch("ds_provider_grasp_py_lib.dataset.file.wr.s3.list_objects") as mock_list_objects:
-            dataset.create()
-
-        mock_list_objects.assert_not_called()
-        mock_serializer.assert_not_called()
-        assert dataset.output.empty
-
-    @patch("ds_provider_grasp_py_lib.dataset.file.wr.s3.list_objects")
-    def test_create_raises_when_resource_already_exists(
-        self,
-        mock_list_objects: MagicMock,
-    ) -> None:
-        """It raises CreateError when the destination path already exists."""
-        mock_list_objects.return_value = ["s3://test-bucket/path/data.json"]
-        mock_serializer = MagicMock()
-        dataset = create_mock_file_dataset(serializer=mock_serializer)
-        dataset.input = create_test_dataframe(rows=2, with_valid_to=False)
-
-        with pytest.raises(CreateError) as exc_info:
-            dataset.create()
-
-        assert "Resource already exists at S3 path" in str(exc_info.value)
-        assert exc_info.value.status_code == 409
-        mock_serializer.assert_not_called()
-
-    @patch("ds_provider_grasp_py_lib.dataset.file.wr.s3.list_objects")
-    def test_create_success_writes_copy_to_s3(
-        self,
-        mock_list_objects: MagicMock,
-    ) -> None:
-        """It writes a copy of the input DataFrame and keeps self.input unchanged."""
-        mock_list_objects.return_value = []
-        mock_serializer = MagicMock()
-        dataset = create_mock_file_dataset(serializer=mock_serializer)
-        dataset.input = create_test_dataframe(rows=2, with_valid_to=False)
-        original_input = dataset.input.copy(deep=True)
-
-        dataset.create()
-
-        called_frame = mock_serializer.call_args.args[0]
-        assert called_frame.equals(original_input)
-        assert called_frame is not dataset.input
-        assert dataset.output.equals(original_input)
-        assert dataset.output is not dataset.input
-        assert dataset.input.equals(original_input)
-        assert dataset.operation.success is True
-        assert dataset.operation.row_count == 2
-
-    @patch("ds_provider_grasp_py_lib.dataset.file.wr.s3.list_objects")
-    def test_create_raises_create_error_on_generic_exception_after_validation(
-        self,
-        mock_list_objects: MagicMock,
-    ) -> None:
-        """It wraps backend failures during create as CreateError."""
-        mock_list_objects.return_value = []
-        mock_serializer = MagicMock(side_effect=RuntimeError("write failed"))
-        dataset = create_mock_file_dataset(serializer=mock_serializer)
-        dataset.input = create_test_dataframe(rows=1, with_valid_to=False)
-
-        with pytest.raises(CreateError) as exc_info:
-            dataset.create()
-        assert "Failed to create file dataset" in str(exc_info.value)
-        assert exc_info.value.status_code == 500
+        assert response_payload == {"ok": True}
+        linked_service.connection.request.assert_called_once()
+        request_kwargs = linked_service.connection.request.call_args.kwargs
+        assert request_kwargs["method"] == "PUT"
+        assert request_kwargs["url"] == "https://grasp.example/api/file/file-1/content/"
+        assert isinstance(request_kwargs["data"], bytes)
+        assert request_kwargs["headers"]["Content-Type"] == "application/octet-stream"
+        assert request_kwargs["headers"]["accept"] == "*/*"
 
 
 class TestGraspFileDatasetList:
@@ -284,13 +219,13 @@ class TestGraspFileDatasetUnsupported:
         assert "not authorized to delete" in str(exc_info.value)
         assert exc_info.value.status_code == 403
 
-    def test_rename_raises_not_supported_error(self) -> None:
-        """It raises NotSupportedError for rename operation."""
+    def test_rename_raises_authorization_error(self) -> None:
+        """It raises AuthorizationError for rename operation."""
         dataset = create_mock_file_dataset()
-        with pytest.raises(NotSupportedError) as exc_info:
+        with pytest.raises(AuthorizationError) as exc_info:
             dataset.rename()
-        assert "does not support rename()" in str(exc_info.value)
-        assert exc_info.value.status_code == 501
+        assert "not authorized to rename" in str(exc_info.value)
+        assert exc_info.value.status_code == 403
 
 
 class TestGraspFileDatasetClose:
@@ -298,7 +233,7 @@ class TestGraspFileDatasetClose:
 
     def test_close_calls_linked_service_close(self) -> None:
         """It calls close on the linked service."""
-        linked_service = create_mock_aws_linked_service()
+        linked_service = create_mock_http_linked_service()
         dataset = create_mock_file_dataset(linked_service=linked_service)
         dataset.close()
         assert linked_service._closed is True

@@ -506,6 +506,22 @@ wheels = [
 ]
 
 [[package]]
+name = "ds-protocol-http-py-lib"
+version = "0.1.0b7"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "ds-common-logger-py-lib" },
+    { name = "ds-common-serde-py-lib" },
+    { name = "ds-resource-plugin-py-lib" },
+    { name = "pandas" },
+    { name = "requests" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/4f/dd/7471e05fdc58e8d79ff86e334cc002afb059d612fba906d23b83438ceab7/ds_protocol_http_py_lib-0.1.0b7.tar.gz", hash = "sha256:5d7aa88288a44fd263ff550571137ac44d90e24a37ea32415033cf21c515fb40", size = 22719, upload-time = "2026-03-30T10:30:46.442Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/ae/3b/a98f98a79740faa92533122552eb8ed35576f45adb6a5b51c9c94f0b6327/ds_protocol_http_py_lib-0.1.0b7-py3-none-any.whl", hash = "sha256:5b2ee864260612e0fc896226a0be681179d1927fcbdfcdb296c4447d2b8050ff", size = 24879, upload-time = "2026-03-30T10:30:45.501Z" },
+]
+
+[[package]]
 name = "ds-provider-aws-py-lib"
 version = "0.1.0a5"
 source = { registry = "https://pypi.org/simple" }
@@ -526,6 +542,7 @@ version = "0.1.0b5"
 source = { editable = "." }
 dependencies = [
     { name = "ds-common-logger-py-lib" },
+    { name = "ds-protocol-http-py-lib" },
     { name = "ds-provider-aws-py-lib" },
     { name = "ds-resource-plugin-py-lib" },
     { name = "pandas" },
@@ -565,6 +582,7 @@ requires-dist = [
     { name = "boto3-stubs", marker = "extra == 'dev'", specifier = ">=1.35.0" },
     { name = "build", marker = "extra == 'dev'", specifier = ">=1.0.0" },
     { name = "ds-common-logger-py-lib", specifier = ">=0.1.0a6,<1.0.0" },
+    { name = "ds-protocol-http-py-lib", specifier = ">=0.1.0b7,<1.0.0" },
     { name = "ds-provider-aws-py-lib", specifier = ">=0.1.0a5,<1.0.0" },
     { name = "ds-resource-plugin-py-lib", specifier = ">=0.1.0rc3,<1.0.0" },
     { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.7.0" },

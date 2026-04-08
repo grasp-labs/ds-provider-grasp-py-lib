@@ -4,33 +4,24 @@
 
 Grasp File Dataset
 
-This module implements a generic GRASP file dataset backed by S3.
-The dataset can read, create, list, and purge files addressed by a
-configured S3 path.
+This module implements a generic GRASP file dataset.
+The dataset can read and create files via grasp API.
 """
 
 from dataclasses import dataclass, field
-from typing import Any, Generic, NoReturn, TypeVar
+from typing import Any, Generic, NoReturn, TypeVar, Dict
 
-import awswrangler as wr
 import pandas as pd
-from awswrangler.exceptions import NoFilesFound
 from ds_common_logger_py_lib import Logger
-from ds_provider_aws_py_lib.linked_service.aws import AWSLinkedService
+from ds_protocol_http_py_lib.linked_service.http import HttpLinkedService
 from ds_resource_plugin_py_lib.common.resource.dataset import (
     DatasetSettings,
-    DatasetStorageFormatType,
     TabularDataset,
 )
-from ds_resource_plugin_py_lib.common.resource.dataset.errors import (
-    CreateError,
-    NotFoundError,
-    ReadError,
-)
-from ds_resource_plugin_py_lib.common.resource.errors import NotSupportedError
+from ds_resource_plugin_py_lib.common.resource.errors import ResourceException
 from ds_resource_plugin_py_lib.common.resource.linked_service.errors import AuthorizationError, ConnectionError
-from ds_resource_plugin_py_lib.common.serde.deserialize import AwsWranglerDeserializer
-from ds_resource_plugin_py_lib.common.serde.serialize import AwsWranglerSerializer
+from ds_resource_plugin_py_lib.common.serde.deserialize import PandasDeserializer
+from ds_resource_plugin_py_lib.common.serde.serialize import PandasSerializer
 
 from ..enums import ResourceType
 
@@ -41,54 +32,43 @@ logger = Logger.get_logger(__name__, package=True)
 class GraspFileDatasetSettings(DatasetSettings):
     """Settings for Grasp file dataset operations."""
 
-    s3_path: str | None = None
-    """The S3 path or prefix representing the file resource scope."""
+    endpoint: str = field(default="file/")
 
-    format: DatasetStorageFormatType = DatasetStorageFormatType.JSON
-    """The storage format used when reading or writing the file."""
+    # Create file properties # todo
+    acl: Dict | None = field(default_factory=dict)
+    description: str | None = None
+    file_path: str | None = None
+    metadata: Dict | None = field(default_factory=dict)
+    status: str | None = field(default="active")
+    tags: Dict | None = field(default_factory=dict)
+    version: str | None = field(default="1.0.0")
 
-    serializer_kwargs: dict[str, Any] = field(default_factory=dict)
-    """Additional keyword arguments forwarded to the serializer."""
-
-    deserializer_kwargs: dict[str, Any] = field(default_factory=dict)
-    """Additional keyword arguments forwarded to the deserializer."""
+    # Read file properties # todo
+    download_file: bool = True
 
 
 GraspFileDatasetSettingsType = TypeVar(
     "GraspFileDatasetSettingsType",
     bound=GraspFileDatasetSettings,
 )
-AWSLinkedServiceType = TypeVar(
-    "AWSLinkedServiceType",
-    bound=AWSLinkedService[Any],
+HttpLinkedServiceType = TypeVar(
+    "HttpLinkedServiceType",
+    bound=HttpLinkedService[Any],
 )
 
 
 @dataclass(kw_only=True)
 class GraspFileDataset(
     TabularDataset[
-        AWSLinkedServiceType,
+        HttpLinkedServiceType,
         GraspFileDatasetSettingsType,
-        AwsWranglerSerializer,
-        AwsWranglerDeserializer,
+        PandasSerializer,
+        PandasDeserializer,
     ],
-    Generic[AWSLinkedServiceType, GraspFileDatasetSettingsType],
+    Generic[HttpLinkedServiceType, GraspFileDatasetSettingsType],
 ):
-    linked_service: AWSLinkedServiceType
+    linked_service: HttpLinkedServiceType
     settings: GraspFileDatasetSettingsType
-
-    def __post_init__(self) -> None:
-        if self.serializer is None:
-            self.serializer = AwsWranglerSerializer(
-                format=self.settings.format,
-                kwargs=self.settings.serializer_kwargs.copy(),
-            )
-
-        if self.deserializer is None:
-            self.deserializer = AwsWranglerDeserializer(
-                format=self.settings.format,
-                kwargs=self.settings.deserializer_kwargs.copy(),
-            )
 
     @property
     def type(self) -> ResourceType:
@@ -101,12 +81,7 @@ class GraspFileDataset(
             **extra,
         }
 
-    def _get_s3_path(self) -> str:
-        if not self.settings.s3_path:
-            raise ValueError("File dataset settings.s3_path is required")
-        return self.settings.s3_path
-
-    def _get_connection(self) -> Any:
+    def _get_connection(self) -> Any: # todo
         connection = self.linked_service.connection
         if connection is None:
             raise ConnectionError(
@@ -116,122 +91,50 @@ class GraspFileDataset(
             )
         return connection
 
-    def _raise_not_supported(self, operation: str) -> NoReturn:
-        raise NotSupportedError(
-            message=f"Grasp File dataset does not support {operation}()",
-            details=self._details(operation=operation),
-        )
-
     def create(self) -> None:
-        if self.input is None:
-            self.output = pd.DataFrame()
-            return
-
-        if hasattr(self.input, "empty") and self.input.empty:
-            self.output = self.input.copy()
-            return
-
-        if not self.serializer:
-            logger.error("Serializer is not set.")
-            raise CreateError(
-                message="Serializer is not set.",
-                status_code=400,
-                details=self._details(),
-            )
-
-        input_frame = self.input.copy()
-
-        try:
-            s3_path = self._get_s3_path()
-            connection = self._get_connection()
-        except ValueError as exc:
-            raise CreateError(
-                message=str(exc),
-                status_code=400,
-                details=self._details(),
-            ) from exc
-        except ConnectionError as exc:
-            raise CreateError(
-                message=str(exc),
-                status_code=exc.status_code,
-                details=self._details(error=exc.details),
-            ) from exc
-
-        try:
-            existing_paths = wr.s3.list_objects(
-                path=s3_path,
-                boto3_session=connection,
-            )
-            if existing_paths:
-                raise CreateError(
-                    message=f"Resource already exists at S3 path: {s3_path}",
-                    status_code=409,
-                    details=self._details(s3_path=s3_path, existing_paths=existing_paths),
-                )
-
-            self.serializer(
-                input_frame,
-                path=s3_path,
-                boto3_session=connection,
-            )
-            self.output = input_frame
-            logger.debug(f"Successfully wrote {len(self.output)} rows to {s3_path}")
-        except CreateError:
-            raise
-        except Exception as exc:
-            logger.exception(f"Failed to create file dataset at {s3_path}: {exc!s}")
-            raise CreateError(
-                message=f"Failed to create file dataset at {s3_path}: {exc!s}",
-                status_code=500,
-                details=self._details(s3_path=s3_path),
-            ) from exc
+        """
+        Write the content of the dataset to the file.
+        :return: None
+        """
+        metadata = self._create_metadata()
+        data = self._upload_file_content(metadata)
+        self.output = pd.DataFrame(data)
 
     def read(self) -> None:
-        if not self.deserializer:
-            logger.error("Deserializer is not set.")
-            raise ReadError(
-                message="Deserializer is not set.",
-                status_code=400,
-                details=self._details(),
-            )
+        """
+        Read the file from the file_uri.
+        :return: None
+        """
+        logger.debug(f"Reading files form {self.linked_service.settings.host}")
 
-        try:
-            s3_path = self._get_s3_path()
-            connection = self._get_connection()
-        except ValueError as exc:
-            raise ReadError(
-                message=str(exc),
-                status_code=400,
-                details=self._details(),
-            ) from exc
-        except ConnectionError as exc:
-            raise ReadError(
-                message=str(exc),
-                status_code=exc.status_code,
-                details=self._details(error=exc.details),
-            ) from exc
+        response = self.linked_service.connection.request(
+            method="GET",
+            url=f"{self.linked_service.settings.host}{self.settings.endpoint}",
+            headers=self.linked_service.settings.headers,
+        )
 
-        logger.debug(f"Reading data from S3 path: {s3_path}")
-        try:
-            self.output = self.deserializer(
-                s3_path,
-                boto3_session=connection,
-            )
-            logger.debug(f"Successfully read {len(self.output)} rows from {s3_path}")
-        except NoFilesFound as exc:
-            logger.error(f"No files found at S3 path: {s3_path}")
-            raise NotFoundError(
-                message=f"No files found at S3 path: {s3_path}",
-                status_code=404,
-                details=self._details(s3_path=s3_path, error=str(exc)),
-            ) from exc
-        except Exception as exc:
-            logger.exception(f"Failed to read data from S3 path: {s3_path}: {exc!s}")
-            raise ReadError(
-                message=f"Failed to read data from S3 path: {s3_path}: {exc!s}",
-                status_code=500,
-                details=self._details(s3_path=s3_path),
-            ) from exc
+        files = response.json()["data"]
+        if self.settings.download_file:
+            for file in files:
+                file_id = file["id"]
+                url = f"{self.linked_service.settings.host}{self.settings.endpoint}{file_id}/content/"
+                try:
+                    connection = self._get_connection()
+                    response = connection.request(
+                        method="GET",
+                        url=url,
+                        headers=self.linked_service.settings.headers,
+                    )
+                except ResourceException as exc:
+                    if exc.status_code == 404:
+                        file.update({"content": b""})
+                        continue
+                file.update({"content": response.content})
+
+            self.output = pd.DataFrame(files)
+        else:
+            self.output = pd.DataFrame(files)
+
 
     def update(self) -> NoReturn:
         raise AuthorizationError(
@@ -263,7 +166,7 @@ class GraspFileDataset(
             },
         )
 
-    def purge(self) -> None:
+    def purge(self) -> NoReturn:
         raise AuthorizationError(
             message="You are not authorized to purge a Grasp File dataset",
             status_code=403,
@@ -273,7 +176,7 @@ class GraspFileDataset(
             },
         )
 
-    def list(self) -> None:
+    def list(self) -> NoReturn:
         raise AuthorizationError(
             message="You are not authorized to list a Grasp File dataset",
             status_code=403,
@@ -284,8 +187,67 @@ class GraspFileDataset(
         )
 
     def rename(self) -> NoReturn:
-        self._raise_not_supported("rename")
+        raise AuthorizationError(
+            message="You are not authorized to rename a Grasp File dataset",
+            status_code=403,
+            details={
+                "type": self.type.value,
+                "settings": self.settings.serialize(),
+            },
+        )
 
     def close(self) -> None:
         """Close the dataset."""
         self.linked_service.close()
+
+    def _create_metadata(self) -> Dict:
+        """
+        Create the metadata for the file.
+        :return: Dict
+        """
+        json = {
+            "acl": self.settings.acl,
+            "description": self.settings.description,
+            "file_path": self.settings.file_path,
+            "metadata": self.settings.metadata,
+            "status": self.settings.status,
+            "tags": self.settings.tags,
+            "version": self.settings.version,
+        }
+        logger.info(f"Creating file metadata: {json}")
+        connection = self._get_connection()
+        response = connection.request(
+            method="POST",
+            url=f"{self.linked_service.settings.host}{self.settings.endpoint}",
+            headers=self.linked_service.settings.headers,
+            json=json,
+        )
+        data = response.json()
+        logger.info(f"File metadata created: {data}")
+        # Cleanup properties
+        self.settings.json = None
+        self.settings.headers = None
+        return data
+
+    def _upload_file_content(self, metadata: Dict) -> Dict:
+        """
+        Upload the file content to the file.
+        :return: Dict
+        """
+        headers = self.linked_service.settings.headers
+        headers.update({
+            "content_type": "application/octet-stream",
+            "Content-Type": "application/octet-stream",
+            "accept": "*/*",
+        })
+        url = f"{self.linked_service.settings.host}{self.settings.endpoint}{metadata['id']}/content/"
+
+        connection = self._get_connection()
+        response = connection.request(
+            method="PUT",
+            url=url,
+            headers=headers,
+            data=self.input.to_json(orient="records").encode(),
+        )
+        data = response.json()
+        return data

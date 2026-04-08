@@ -11,7 +11,6 @@ Covers:
 from __future__ import annotations
 
 import pytest
-from ds_resource_plugin_py_lib.common.resource.errors import NotSupportedError
 from ds_resource_plugin_py_lib.common.resource.linked_service.errors import (
     AuthorizationError,
 )
@@ -210,10 +209,10 @@ class TestGraspFileDatasetUnsupported:
         assert "not authorized to list" in str(exc_info.value)
         assert exc_info.value.status_code == 403
 
-    def test_rename_raises_not_supported_error(self) -> None:
-        """It raises NotSupportedError for rename operation."""
+    def test_rename_raises_authorization_error(self) -> None:
+        """It raises AuthorizationError for rename operation."""
         dataset = create_mock_file_dataset()
-        with pytest.raises(NotSupportedError) as exc_info:
+        with pytest.raises(AuthorizationError) as exc_info:
             dataset.rename()
-        assert "does not support rename()" in str(exc_info.value)
-        assert exc_info.value.status_code == 501
+        assert "not authorized to rename" in str(exc_info.value)
+        assert exc_info.value.status_code == 403
