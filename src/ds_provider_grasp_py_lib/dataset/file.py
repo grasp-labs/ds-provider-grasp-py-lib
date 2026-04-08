@@ -81,7 +81,7 @@ class GraspFileDataset(
             **extra,
         }
 
-    def _get_connection(self) -> Any: # todo
+    def _get_connection(self) -> Any:
         connection = self.linked_service.connection
         if connection is None:
             raise ConnectionError(
