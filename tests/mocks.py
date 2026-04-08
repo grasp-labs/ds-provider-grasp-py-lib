@@ -15,10 +15,16 @@ from typing import Any, cast
 from unittest.mock import MagicMock
 
 import pandas as pd
+from ds_resource_plugin_py_lib.common.resource.linked_service.errors import ConnectionError
 
 from ds_provider_grasp_py_lib.dataset.cart import (
     GraspCartDataset,
     GraspCartDatasetSettings,
+)
+from ds_provider_grasp_py_lib.dataset.file import (
+    GraspFileDataset,
+    GraspFileDatasetSettings,
+    ReadSettings,
 )
 from ds_provider_grasp_py_lib.dataset.ingress import (
     GraspIngressDataset,
@@ -56,6 +62,55 @@ class MockAWSLinkedService:
         self._closed = True
 
 
+class MockHTTPResponse:
+    """Mock HTTP response with JSON payload and binary content."""
+
+    def __init__(self, json_data: dict[str, Any] | None = None, content: bytes = b"") -> None:
+        self._json_data = json_data or {}
+        self.content = content
+
+    def json(self) -> dict[str, Any]:
+        return self._json_data
+
+
+class MockHTTPConnection:
+    """Mock HTTP connection exposing request()."""
+
+    def __init__(self) -> None:
+        self.request = MagicMock()
+
+
+class MockHTTPSettings:
+    """Mock HTTP linked service settings used by Grasp file dataset."""
+
+    def __init__(self, host: str, headers: dict[str, str] | None = None) -> None:
+        self.host = host
+        self.headers = headers or {}
+
+
+class MockHTTPLinkedService:
+    """Mock HTTP linked service for file dataset tests."""
+
+    def __init__(
+        self,
+        connection: MockHTTPConnection | None = None,
+        host: str = "https://grasp.example/api/",
+        headers: dict[str, str] | None = None,
+    ) -> None:
+        self._connection = connection
+        self.settings = MockHTTPSettings(host=host, headers=headers)
+        self._closed = False
+
+    @property
+    def connection(self) -> MockHTTPConnection:
+        if self._connection is None:
+            raise ConnectionError(message="Session is not initialized")
+        return self._connection
+
+    def close(self) -> None:
+        self._closed = True
+
+
 def create_mock_aws_linked_service(
     with_connection: bool = True,
 ) -> MockAWSLinkedService:
@@ -70,6 +125,16 @@ def create_mock_aws_linked_service(
     """
     connection = MockBoto3Session() if with_connection else None
     return MockAWSLinkedService(connection=connection)
+
+
+def create_mock_http_linked_service(
+    with_connection: bool = True,
+    host: str = "https://grasp.example/api/",
+    headers: dict[str, str] | None = None,
+) -> MockHTTPLinkedService:
+    """Create a mock HTTP linked service for Grasp file dataset tests."""
+    connection = MockHTTPConnection() if with_connection else None
+    return MockHTTPLinkedService(connection=connection, host=host, headers=headers)
 
 
 def create_mock_cart_dataset(
@@ -159,6 +224,49 @@ def create_mock_ingress_dataset(
         dataset_kwargs["serializer"] = serializer
 
     dataset = GraspIngressDataset(**dataset_kwargs)
+    return dataset
+
+
+def create_mock_file_dataset(
+    url: str = "https://grasp.example/api/file/",
+    download_file: bool = True,
+    linked_service: MockHTTPLinkedService | None = None,
+    deserializer: Any = _UNSET,
+    serializer: Any = _UNSET,
+) -> GraspFileDataset[Any, Any]:
+    """
+    Create a mock GraspFileDataset for testing.
+
+    Args:
+        url: Base file API URL used by the dataset.
+        download_file: Whether file content should be downloaded.
+        linked_service: Optional linked service. If None, creates a mock one.
+        deserializer: Optional deserializer.
+        serializer: Optional serializer.
+
+    Returns:
+        GraspFileDataset: A dataset instance ready for testing.
+    """
+    if linked_service is None:
+        linked_service = create_mock_http_linked_service()
+
+    settings = GraspFileDatasetSettings(
+        url=url,
+        read=ReadSettings(download_file=download_file),
+    )
+    dataset_kwargs: dict[str, Any] = {
+        "id": uuid.uuid4(),
+        "name": "test-file-dataset",
+        "version": "1.0.0",
+        "linked_service": cast("Any", linked_service),
+        "settings": settings,
+    }
+    if deserializer is not _UNSET:
+        dataset_kwargs["deserializer"] = deserializer
+    if serializer is not _UNSET:
+        dataset_kwargs["serializer"] = serializer
+
+    dataset = GraspFileDataset(**dataset_kwargs)
     return dataset
 
 
