@@ -36,11 +36,14 @@ Example:
 """
 
 from .cart import GraspCartDataset, GraspCartDatasetSettings
+from .file import GraspFileDataset, GraspFileDatasetSettings
 from .ingress import GraspIngressDataset, GraspIngressDatasetSettings
 
 __all__ = [
     "GraspCartDataset",
     "GraspCartDatasetSettings",
+    "GraspFileDataset",
+    "GraspFileDatasetSettings",
     "GraspIngressDataset",
     "GraspIngressDatasetSettings",
 ]

@@ -1,5 +1,5 @@
 version = 1
-revision = 2
+revision = 3
 requires-python = ">=3.11"
 resolution-markers = [
     "python_full_version >= '3.12'",
@@ -486,11 +486,11 @@ wheels = [
 
 [[package]]
 name = "ds-common-logger-py-lib"
-version = "0.1.0a5"
+version = "0.1.0a6"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/1c/fe/eabb5237c73d44dc23174577e73d8456c64eb331daa51006f0ca4114b17d/ds_common_logger_py_lib-0.1.0a5.tar.gz", hash = "sha256:e34684900e6afd01c4fb10bf01d833926324f5cbb2385cfb77c5a455df2e0a82", size = 21977, upload-time = "2026-01-25T18:29:58.09Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/5b/79/ca4d8837a0c2ff0052598fec40d6e178efb0e97e7edceb1dd58f1e2ed996/ds_common_logger_py_lib-0.1.0a6.tar.gz", hash = "sha256:47897a05f8ad6b0706d0a3ee32fc74b9ac5ae30460af658b8d34effabaa03f89", size = 22008, upload-time = "2026-03-17T09:36:44.059Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/c3/cf/c0472c2988278a9870692a3995d57dbe13d0b10abb783345196de3129f31/ds_common_logger_py_lib-0.1.0a5-py3-none-any.whl", hash = "sha256:68ad595d9ba3cf55375072d9ce6a97319b7ca0a4551d464ab1bd488d9fbaece2", size = 14733, upload-time = "2026-01-25T18:29:57.118Z" },
+    { url = "https://files.pythonhosted.org/packages/bb/37/f75f4c7fbd9a1d100b4c0f072af543934444a4d3aca0d4a9deed945c6c09/ds_common_logger_py_lib-0.1.0a6-py3-none-any.whl", hash = "sha256:72c16dd6877dc17d4595282ad65253cde7888d0b6884a0ff5a0f0e7b0f984b2b", size = 14735, upload-time = "2026-03-17T09:36:43.027Z" },
 ]
 
 [[package]]
@@ -522,7 +522,7 @@ wheels = [
 
 [[package]]
 name = "ds-provider-grasp-py-lib"
-version = "0.1.0b4"
+version = "0.1.0b5"
 source = { editable = "." }
 dependencies = [
     { name = "ds-common-logger-py-lib" },
@@ -564,9 +564,9 @@ requires-dist = [
     { name = "bandit", marker = "extra == 'dev'", specifier = ">=1.7.0" },
     { name = "boto3-stubs", marker = "extra == 'dev'", specifier = ">=1.35.0" },
     { name = "build", marker = "extra == 'dev'", specifier = ">=1.0.0" },
-    { name = "ds-common-logger-py-lib", specifier = ">=0.1.0a5,<1.0.0" },
+    { name = "ds-common-logger-py-lib", specifier = ">=0.1.0a6,<1.0.0" },
     { name = "ds-provider-aws-py-lib", specifier = ">=0.1.0a5,<1.0.0" },
-    { name = "ds-resource-plugin-py-lib", specifier = ">=0.1.0rc1,<1.0.0" },
+    { name = "ds-resource-plugin-py-lib", specifier = ">=0.1.0rc3,<1.0.0" },
     { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.7.0" },
     { name = "pandas", specifier = ">=2.2.0,<3.0.0" },
     { name = "pandas-stubs", marker = "extra == 'dev'", specifier = ">=2.2.0" },
@@ -590,7 +590,7 @@ provides-extras = ["dev", "test", "docs"]
 
 [[package]]
 name = "ds-resource-plugin-py-lib"
-version = "0.1.0rc1"
+version = "0.1.0rc3"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "awswrangler" },
@@ -600,9 +600,9 @@ dependencies = [
     { name = "pyyaml" },
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/b4/cb/6baf2b0d49f8764158a79b64eef23a7f081511bca66f5e02c8d9132d1890/ds_resource_plugin_py_lib-0.1.0rc1.tar.gz", hash = "sha256:ae27af3a31e4d8cc133fa25b8d0eb3bffaf768ec526f61100608098fb5cd87ba", size = 22463, upload-time = "2026-02-24T11:03:18.682Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/90/36/150908f8a9afdbf3de50169ef64365081528cd4b6a3d5d6f28826f00fbfd/ds_resource_plugin_py_lib-0.1.0rc3.tar.gz", hash = "sha256:02d77a11c7d8836b72b51941de86624900bb9639f82ad1882a7e1e32a07e96e2", size = 22981, upload-time = "2026-03-18T16:15:14.992Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/6b/04/dac0995c3e1ce1e58e7cb09c62e1a837877e9b1a33d9d3e5e3b2f7784de7/ds_resource_plugin_py_lib-0.1.0rc1-py3-none-any.whl", hash = "sha256:56e08d431393f5e4e225f6517c72af83b5776a8ac49c72d10f3721afdf2351cb", size = 31141, upload-time = "2026-02-24T11:03:17.7Z" },
+    { url = "https://files.pythonhosted.org/packages/a8/9e/67f4158b6107662abd2c21bb66fed1ca49725509b4ce6f2b6f50f50a107f/ds_resource_plugin_py_lib-0.1.0rc3-py3-none-any.whl", hash = "sha256:0bc6aa86a3bdae6a6b57174d82dde4a226601bed66894326a8735f63cdeacab8", size = 32269, upload-time = "2026-03-18T16:15:14.002Z" },
 ]
 
 [[package]]

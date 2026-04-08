@@ -15,10 +15,15 @@ from typing import Any, cast
 from unittest.mock import MagicMock
 
 import pandas as pd
+from ds_resource_plugin_py_lib.common.resource.dataset import DatasetStorageFormatType
 
 from ds_provider_grasp_py_lib.dataset.cart import (
     GraspCartDataset,
     GraspCartDatasetSettings,
+)
+from ds_provider_grasp_py_lib.dataset.file import (
+    GraspFileDataset,
+    GraspFileDatasetSettings,
 )
 from ds_provider_grasp_py_lib.dataset.ingress import (
     GraspIngressDataset,
@@ -159,6 +164,46 @@ def create_mock_ingress_dataset(
         dataset_kwargs["serializer"] = serializer
 
     dataset = GraspIngressDataset(**dataset_kwargs)
+    return dataset
+
+
+def create_mock_file_dataset(
+    s3_path: str | None = "s3://test-bucket/path/data.json",
+    format: DatasetStorageFormatType = DatasetStorageFormatType.JSON,
+    linked_service: MockAWSLinkedService | None = None,
+    deserializer: Any = _UNSET,
+    serializer: Any = _UNSET,
+) -> GraspFileDataset[Any, Any]:
+    """
+    Create a mock GraspFileDataset for testing.
+
+    Args:
+        s3_path: Optional S3 path for the file dataset.
+        format: Dataset storage format.
+        linked_service: Optional linked service. If None, creates a mock one.
+        deserializer: Optional deserializer.
+        serializer: Optional serializer.
+
+    Returns:
+        GraspFileDataset: A dataset instance ready for testing.
+    """
+    if linked_service is None:
+        linked_service = create_mock_aws_linked_service()
+
+    settings = GraspFileDatasetSettings(s3_path=s3_path, format=format)
+    dataset_kwargs: dict[str, Any] = {
+        "id": uuid.uuid4(),
+        "name": "test-file-dataset",
+        "version": "1.0.0",
+        "linked_service": cast("Any", linked_service),
+        "settings": settings,
+    }
+    if deserializer is not _UNSET:
+        dataset_kwargs["deserializer"] = deserializer
+    if serializer is not _UNSET:
+        dataset_kwargs["serializer"] = serializer
+
+    dataset = GraspFileDataset(**dataset_kwargs)
     return dataset
 
 
