@@ -83,6 +83,39 @@ class TestGraspFileDatasetRead:
 
         assert dataset.output.iloc[0]["content"] == b""
 
+    def test_read_passes_optional_query_params(self) -> None:
+        """It forwards optional read filters as query params on list request."""
+        linked_service = create_mock_http_linked_service()
+        linked_service.connection.request.return_value = MockHTTPResponse(json_data={"data": []})
+        dataset = create_mock_file_dataset(linked_service=linked_service, download_file=False)
+
+        dataset.settings.read.limit = 10
+        dataset.settings.read.offset = 5
+        dataset.settings.read.order_by = "-modified_at"
+        dataset.settings.read.id = "file-123"
+        dataset.settings.read.file_path = "folder/a.txt"
+        dataset.settings.read.created_at_gte = "2024-01-01T00:00:00Z"
+        dataset.settings.read.modified_at_lte = "2024-12-31T23:59:59Z"
+        dataset.settings.read.status = "active"
+        dataset.settings.read.tags = {"type": "png"}
+        dataset.settings.read.meta = {"category": "data"}
+
+        dataset.read()
+
+        request_kwargs = linked_service.connection.request.call_args.kwargs
+        assert request_kwargs["params"] == {
+            "limit": 10,
+            "offset": 5,
+            "order_by": "-modified_at",
+            "id": "file-123",
+            "file_path": "folder/a.txt",
+            "created_at_gte": "2024-01-01T00:00:00Z",
+            "modified_at_lte": "2024-12-31T23:59:59Z",
+            "status": "active",
+            "tag.type": "png",
+            "meta.category": "data",
+        }
+
 
 class TestGraspFileDatasetCreate:
     """Tests for GraspFileDataset create operation."""

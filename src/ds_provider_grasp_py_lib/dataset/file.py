@@ -48,7 +48,20 @@ class ReadSettings:
     """
     Settings for read operations.
     """
+
     download_file: bool = True
+    limit: int | None = None
+    offset: int | None = None
+    order_by: str | None = None
+    tags: Dict[str, str] | None = field(default_factory=dict)
+    meta: Dict[str, str] | None = field(default_factory=dict)
+    id: str | None = None
+    file_path: str | None = None
+    created_at_gte: str | None = None
+    modified_at_gte: str | None = None
+    created_at_lte: str | None = None
+    modified_at_lte: str | None = None
+    status: str | None = None
 
 @dataclass(kw_only=True)
 class GraspFileDatasetSettings(DatasetSettings):
@@ -93,6 +106,35 @@ class GraspFileDataset(
             **extra,
         }
 
+    def _read_params(self) -> Dict[str, Any]:
+        """Build query parameters for file listing from read settings."""
+        read = self.settings.read
+        params: Dict[str, Any] = {}
+
+        for key in (
+            "limit",
+            "offset",
+            "order_by",
+            "id",
+            "file_path",
+            "created_at_gte",
+            "modified_at_gte",
+            "created_at_lte",
+            "modified_at_lte",
+            "status",
+        ):
+            value = getattr(read, key)
+            if value is not None:
+                params[key] = value
+
+        for key, value in (read.tags or {}).items():
+            params[f"tag.{key}"] = value
+
+        for key, value in (read.meta or {}).items():
+            params[f"meta.{key}"] = value
+
+        return params
+
     def create(self) -> None:
         """
         Write the content of the dataset to the file.
@@ -113,6 +155,7 @@ class GraspFileDataset(
             method="GET",
             url=f"{self.linked_service.settings.host}{self.settings.endpoint}",
             headers=self.linked_service.settings.headers,
+            params=self._read_params(),
         )
 
         files = response.json()["data"]
