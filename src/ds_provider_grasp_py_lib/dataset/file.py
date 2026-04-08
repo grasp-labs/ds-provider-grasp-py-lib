@@ -34,12 +34,12 @@ class CreateSettings:
     Settings for create operations.
     """
 
-    acl: dict | None = field(default_factory=dict)
+    acl: dict[str, Any] | None = field(default_factory=dict)
     description: str | None = None
     file_path: str | None = None
-    metadata: dict | None = field(default_factory=dict)
+    metadata: dict[str, Any] | None = field(default_factory=dict)
     status: str | None = field(default="active")
-    tags: dict | None = field(default_factory=dict)
+    tags: dict[str, Any] | None = field(default_factory=dict)
     version: str | None = field(default="1.0.0")
 
 
@@ -244,12 +244,12 @@ class GraspFileDataset(
         """Close the dataset."""
         self.linked_service.close()
 
-    def _create_metadata(self) -> dict:
+    def _create_metadata(self) -> dict[str, Any]:
         """
         Create the metadata for the file.
         :return: Dict
         """
-        json = {
+        json: dict[str, Any] = {
             "acl": self.settings.create.acl,
             "description": self.settings.create.description,
             "file_path": self.settings.create.file_path,
@@ -265,11 +265,11 @@ class GraspFileDataset(
             headers=self.linked_service.settings.headers,
             json=json,
         )
-        data = response.json()
+        data: dict[str, Any] = response.json()
         logger.info(f"File metadata created: {data}")
         return data
 
-    def _upload_file_content(self, metadata: dict) -> dict:
+    def _upload_file_content(self, metadata: dict[str, Any]) -> dict[str, Any]:
         """
         Upload the file content to the file.
         :return: Dict
@@ -290,5 +290,5 @@ class GraspFileDataset(
             headers=headers,
             data=self.input.to_json(orient="records").encode(),
         )
-        data = response.json()
+        data: dict[str, Any] = response.json()
         return data
