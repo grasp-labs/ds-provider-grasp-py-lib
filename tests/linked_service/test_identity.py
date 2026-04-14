@@ -7,6 +7,8 @@ Unit tests for GraspIdentityLinkedService and GraspIdentityLinkedServiceSettings
 
 import uuid
 
+from ds_protocol_http_py_lib import enums
+
 from ds_provider_grasp_py_lib.enums import ResourceType
 from ds_provider_grasp_py_lib.linked_service.identity import (
     GraspIdentityLinkedService,
@@ -16,33 +18,25 @@ from ds_provider_grasp_py_lib.linked_service.identity import (
 
 def test_settings_defaults():
     settings = GraspIdentityLinkedServiceSettings()
-    assert settings.host == "https://auth.grasp-daas.com/"
-    assert settings.login_endpoint == "https://auth.grasp-daas.com/rest-auth/login/"
-    assert settings.token_endpoint == "https://auth.grasp-daas.com/oauth/token/"
-    assert settings.auth_type.name == "BEARER"
-    assert settings.client_id is None
-    assert settings.client_secret is None
-    assert settings.email is None
-    assert settings.password is None
+    assert settings.host == "auth-dev.grasp-daas.com/rest-auth/login/"
+    assert settings.auth_type.name == "BASIC"
+    assert settings.schema == "https"
+    assert settings.oauth is None
+    assert settings.basic is None
 
 
 def test_settings_custom_values():
     settings = GraspIdentityLinkedServiceSettings(
-        client_id="abc",
-        client_secret="secret",
-        email="user@example.com",
-        password="pw",
-        host="https://custom/",
-        login_endpoint="/login/",
-        token_endpoint="/token/",
+        host="custom-host",
+        auth_type=enums.AuthType.BASIC,  # or OAUTH2 if you want to test that
+        schema="http",
+        oauth="oauth-settings",
+        basic="basic-settings",
     )
-    assert settings.client_id == "abc"
-    assert settings.client_secret == "secret"
-    assert settings.email == "user@example.com"
-    assert settings.password == "pw"
-    assert settings.host == "https://custom/"
-    assert settings.login_endpoint == "/login/"
-    assert settings.token_endpoint == "/token/"
+    assert settings.host == "custom-host"
+    assert settings.schema == "http"
+    assert settings.oauth == "oauth-settings"
+    assert settings.basic == "basic-settings"
 
 
 def test_linked_service_type_property():
