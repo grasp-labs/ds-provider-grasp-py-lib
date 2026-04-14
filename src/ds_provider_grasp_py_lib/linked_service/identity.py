@@ -23,25 +23,27 @@ class GraspIdentityLinkedServiceSettings(HttpLinkedServiceSettings):
     Settings required to connect to the Grasp Identity service.
 
     Attributes:
-        client_id: The client ID to use when connecting to the Grasp Identity service.
-        client_secret: The client secret to use when connecting to the Grasp Identity service.
-        email: The email to use when connecting to the Grasp Identity service.
-        password: The password to use when connecting to the Grasp Identity service.
-        host: The host URL of the Grasp Identity service.
-        login_endpoint: The login endpoint URL of the Grasp Identity service.
-        token_endpoint: The token endpoint URL of the Grasp Identity service.
-        auth_type: The authentication type to use when connecting to the Grasp Identity service.
+        host: Grasp Identity login url.
+        auth_type: The type of authentication to use (e.g., BASIC, OAUTH2).
+        schema: The schema to use for the connection (e.g., "https").
+        oauth: OAuth2 authentication settings (if auth_type is OAUTH2).
+        basic: Basic authentication settings (if auth_type is BASIC).
     """
 
     host: str = field(default="auth-dev.grasp-daas.com/rest-auth/login/")
+    """Grasp Identity login url. Default is 'auth-dev.grasp-daas.com/rest-auth/login/'"""
 
     auth_type: enums.AuthType = field(default=enums.AuthType.BASIC)
+    """The type of authentication to use. Default is BASIC."""
 
     schema: str = field(default="https")
+    """The schema to use for the connection. Default is 'https'."""
 
     oauth: OAuth2AuthSettings | None = None
+    """OAuth2 authentication settings (if auth_type is OAUTH2)."""
 
     basic: BasicAuthSettings | None = None
+    """Basic authentication settings (if auth_type is BASIC)."""
 
 
 GraspIdentityLinkedServiceSettingsType = TypeVar(
