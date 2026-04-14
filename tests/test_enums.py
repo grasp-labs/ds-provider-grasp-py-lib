@@ -20,8 +20,10 @@ def test_resource_type_dataset_value() -> None:
     """
     assert ResourceType.DATASET_INGRESS == "ds.resource.dataset.grasp-ingress"
     assert ResourceType.DATASET_CART == "ds.resource.dataset.grasp-cart"
+    assert ResourceType.DATASET_FILE == "ds.resource.dataset.grasp-file"
     assert isinstance(ResourceType.DATASET_INGRESS, str)
     assert isinstance(ResourceType.DATASET_CART, str)
+    assert isinstance(ResourceType.DATASET_FILE, str)
 
 
 def test_resource_type_enum_membership() -> None:
@@ -30,6 +32,7 @@ def test_resource_type_enum_membership() -> None:
     """
     assert ResourceType.DATASET_CART in ResourceType
     assert ResourceType.DATASET_INGRESS in ResourceType
+    assert ResourceType.DATASET_FILE in ResourceType
 
 
 def test_resource_type_enum_comparison() -> None:
@@ -37,3 +40,5 @@ def test_resource_type_enum_comparison() -> None:
     It supports equality comparison with strings.
     """
     assert ResourceType.DATASET_INGRESS != ResourceType.DATASET_CART
+    assert ResourceType.DATASET_INGRESS != ResourceType.DATASET_FILE
+    assert ResourceType.DATASET_CART != ResourceType.DATASET_FILE

@@ -15,3 +15,9 @@ dataset:
     version: 1.0.0
     description: Grasp ingress dataset
     class_name: ds_provider_grasp_py_lib.dataset.ingress.GraspIngressDataset
+
+  - name: Grasp File
+    type: ds.resource.dataset.grasp-file
+    version: 1.0.0
+    description: Grasp file dataset
+    class_name: ds_provider_grasp_py_lib.dataset.file.GraspFileDataset
