@@ -8,13 +8,10 @@ Linked Service for Grasp Identity service.
 from dataclasses import dataclass, field
 from typing import Generic, TypeVar
 
-from ds_common_logger_py_lib import Logger
 from ds_protocol_http_py_lib import HttpLinkedService, HttpLinkedServiceSettings, enums
 from ds_protocol_http_py_lib.linked_service.http import BasicAuthSettings, OAuth2AuthSettings
 
 from ..enums import ResourceType
-
-logger = Logger.get_logger(__name__, package=True)
 
 
 @dataclass(kw_only=True)

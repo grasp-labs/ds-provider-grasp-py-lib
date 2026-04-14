@@ -10,8 +10,11 @@ Example:
     ...     name="grasp-identity-linked-service",
     ...     version="1.0.0",
     ...     settings=GraspIdentityLinkedServiceSettings(
-    ...         client_id="client_id",
-    ...         client_secret="client_secret",
+    ...         auth_type=enums.AuthType.BASIC,
+    ...         basic=BasicAuthSettings(
+    ...             username="user",
+    ...             password="pass"
+    ...         )
     ...     ),
     ... )
     >>> linked_service.connect()

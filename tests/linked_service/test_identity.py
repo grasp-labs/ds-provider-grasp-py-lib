@@ -5,6 +5,8 @@
 Unit tests for GraspIdentityLinkedService and GraspIdentityLinkedServiceSettings.
 """
 
+from __future__ import annotations
+
 import uuid
 
 from ds_protocol_http_py_lib import enums
@@ -16,7 +18,8 @@ from ds_provider_grasp_py_lib.linked_service.identity import (
 )
 
 
-def test_settings_defaults():
+def test_settings_defaults() -> None:
+    """Test that GraspIdentityLinkedServiceSettings has correct default values."""
     settings = GraspIdentityLinkedServiceSettings()
     assert settings.host == "auth-dev.grasp-daas.com/rest-auth/login/"
     assert settings.auth_type.name == "BASIC"
@@ -25,7 +28,8 @@ def test_settings_defaults():
     assert settings.basic is None
 
 
-def test_settings_custom_values():
+def test_settings_custom_values() -> None:
+    """Test that GraspIdentityLinkedServiceSettings can be instantiated with custom values."""
     settings = GraspIdentityLinkedServiceSettings(
         host="custom-host",
         auth_type=enums.AuthType.BASIC,  # or OAUTH2 if you want to test that
@@ -39,7 +43,8 @@ def test_settings_custom_values():
     assert settings.basic == "basic-settings"
 
 
-def test_linked_service_type_property():
+def test_linked_service_type_property() -> None:
+    """Test that GraspIdentityLinkedService has the correct type property."""
     settings = GraspIdentityLinkedServiceSettings()
     service = GraspIdentityLinkedService(
         id=uuid.uuid4(),
@@ -51,7 +56,8 @@ def test_linked_service_type_property():
     assert str(service.type) == "ds.linked-service.grasp-identity"
 
 
-def test_linked_service_post_init_runs():
+def test_linked_service_post_init_runs() -> None:
+    """Test that GraspIdentityLinkedService can be instantiated without errors."""
     settings = GraspIdentityLinkedServiceSettings()
     # Should not raise
     GraspIdentityLinkedService(
