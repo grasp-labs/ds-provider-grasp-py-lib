@@ -10,6 +10,7 @@ from typing import Generic, TypeVar
 
 from ds_common_logger_py_lib import Logger
 from ds_protocol_http_py_lib import HttpLinkedService, HttpLinkedServiceSettings, enums
+from ds_protocol_http_py_lib.linked_service.http import BasicAuthSettings, OAuth2AuthSettings
 
 from ..enums import ResourceType
 
@@ -32,29 +33,15 @@ class GraspIdentityLinkedServiceSettings(HttpLinkedServiceSettings):
         auth_type: The authentication type to use when connecting to the Grasp Identity service.
     """
 
-    client_id: str | None = None
-    """The client ID to use when connecting to the Grasp Identity service."""
+    host: str = field(default="auth-dev.grasp-daas.com/rest-auth/login/")
 
-    client_secret: str | None = field(default=None, repr=False, metadata={"mask": True})
-    """The client secret to use when connecting to the Grasp Identity service."""
+    auth_type: enums.AuthType = field(default=enums.AuthType.BASIC)
 
-    email: str | None = None
-    """The email to use when connecting to the Grasp Identity service."""
+    schema: str = field(default="https")
 
-    password: str | None = field(default=None, repr=False, metadata={"mask": True})
-    """The password to use when connecting to the Grasp Identity service."""
+    oauth: OAuth2AuthSettings | None = None
 
-    host: str = "https://auth.grasp-daas.com/"
-    """The host URL of the Grasp Identity service."""
-
-    login_endpoint: str = "https://auth.grasp-daas.com/rest-auth/login/"
-    """The login endpoint URL of the Grasp Identity service."""
-
-    token_endpoint: str = "https://auth.grasp-daas.com/oauth/token/"
-    """The token endpoint URL of the Grasp Identity service."""
-
-    auth_type: enums.AuthType = enums.AuthType.BEARER
-    """The authentication type to use when connecting to the Grasp Identity service."""
+    basic: BasicAuthSettings | None = None
 
 
 GraspIdentityLinkedServiceSettingsType = TypeVar(
