@@ -1,6 +1,6 @@
 """
-**File:** ``04_dataset_file_create.py``
-**Region:** ``examples/04_dataset_file_create``
+**File:** ``04_dataset_file_create_from_input.py``
+**Region:** ``examples/04_dataset_file_create_from_input``
 
 Example 04: Create a file with GraspFileDataset via the Grasp File API.
 

@@ -1,6 +1,6 @@
 """
-**File:** ``03_dataset_file_read.py``
-**Region:** ``examples/03_dataset_file_read``
+**File:** ``03_dataset_file_read_with_deserializer.py``
+**Region:** ``examples/03_dataset_file_read_with_deserializer``
 
 Example 03: Read data from a Grasp File dataset using GraspFileDataset.
 
