@@ -209,7 +209,7 @@ class GraspFileDataset(
                     try:
                         deserialized_frames.append(self.deserializer(content))
                     except Exception as exc:
-                        raise ReadError(f"Failed to deserialize content: {str(exc)}") from exc
+                        raise ReadError(f"Failed to deserialize content: {exc!s}") from exc
                 self.output = pd.concat(deserialized_frames, ignore_index=True) if deserialized_frames else pd.DataFrame()
             else:
                 self.output = pd.DataFrame(files)
