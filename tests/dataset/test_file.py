@@ -5,7 +5,9 @@ from __future__ import annotations
 from io import BytesIO
 from unittest.mock import MagicMock
 
+import pandas as pd
 import pytest
+from ds_resource_plugin_py_lib.common.resource.dataset.errors import ReadError
 from ds_resource_plugin_py_lib.common.resource.dataset.errors import CreateError
 from ds_resource_plugin_py_lib.common.resource.errors import ResourceException
 from ds_resource_plugin_py_lib.common.resource.linked_service.errors import AuthorizationError, ConnectionError
@@ -71,6 +73,46 @@ class TestGraspFileDatasetRead:
         assert list(dataset.output["id"]) == ["f1", "f2"]
         assert list(dataset.output["content"]) == [b"hello", b"world"]
 
+    def test_read_deserializes_downloaded_content_when_deserializer_is_set(self) -> None:
+        """It downloads file content and deserializes it into output DataFrame."""
+        linked_service = create_mock_http_linked_service()
+        linked_service.connection.request.side_effect = [
+            MockHTTPResponse(json_data={"data": [{"id": "f1"}, {"id": "f2"}]}),
+            MockHTTPResponse(content=b"first"),
+            MockHTTPResponse(content=b"second"),
+        ]
+        deserializer = MagicMock(
+            side_effect=[
+                pd.DataFrame([{"value": 1}]),
+                pd.DataFrame([{"value": 2}]),
+            ]
+        )
+        dataset = create_mock_file_dataset(
+            linked_service=linked_service,
+            download_file=True,
+            deserializer=deserializer,
+        )
+
+        dataset.read()
+
+        assert list(dataset.output["value"]) == [1, 2]
+        assert deserializer.call_count == 2
+        assert linked_service.connection.request.call_count == 3
+
+    def test_read_raises_when_deserializer_set_and_download_is_disabled(self) -> None:
+        """It enforces download_file=True when a deserializer is configured."""
+        linked_service = create_mock_http_linked_service()
+        dataset = create_mock_file_dataset(
+            linked_service=linked_service,
+            download_file=False,
+            deserializer=MagicMock(),
+        )
+
+        with pytest.raises(ReadError, match=r"download_file must be true"):
+            dataset.read()
+
+        linked_service.connection.request.assert_not_called()
+
     def test_read_uses_empty_content_when_file_download_returns_404(self) -> None:
         """It sets empty content for files that return a 404 during content download."""
         linked_service = create_mock_http_linked_service()
@@ -126,13 +168,51 @@ class TestGraspFileDatasetCreate:
         dataset = create_mock_file_dataset()
         dataset.input = create_test_dataframe(rows=1, with_valid_to=False)
         dataset._create_metadata = MagicMock(return_value={"id": "f1"})  # type: ignore[method-assign]
+        dataset._resolve_create_content = MagicMock(return_value=b"payload")  # type: ignore[method-assign]
         dataset._upload_file_content = MagicMock(return_value=[{"id": "f1", "status": "ok"}])  # type: ignore[method-assign]
 
         dataset.create()
 
         assert dataset._create_metadata.called
-        dataset._upload_file_content.assert_called_once_with({"id": "f1"})
+        dataset._resolve_create_content.assert_called_once_with()
+        dataset._upload_file_content.assert_called_once_with({"id": "f1"}, b"payload")
         assert dataset.output.iloc[0]["id"] == "f1"
+
+    def test_create_uses_serializer_output_when_serializer_is_set(self) -> None:
+        """It serializes dataset.input and uploads the serialized payload."""
+        serializer = MagicMock(return_value=b"serialized")
+        dataset = create_mock_file_dataset(serializer=serializer)
+        dataset.input = create_test_dataframe(rows=1, with_valid_to=False)
+        dataset._create_metadata = MagicMock(return_value={"id": "f1"})  # type: ignore[method-assign]
+        dataset._upload_file_content = MagicMock(return_value=[{"id": "f1"}])  # type: ignore[method-assign]
+
+        dataset.create()
+
+        serializer.assert_called_once_with(dataset.input)
+        dataset._upload_file_content.assert_called_once_with({"id": "f1"}, b"serialized")
+
+    def test_create_falls_back_to_settings_content_when_input_is_missing(self) -> None:
+        """It uses settings.create.content when serializer is set but dataset.input is None."""
+        serializer = MagicMock(return_value=b"serialized")
+        dataset = create_mock_file_dataset(serializer=serializer)
+        content = BytesIO(b"binary-content")
+        dataset.settings.create.content = content
+        dataset._create_metadata = MagicMock(return_value={"id": "f1"})  # type: ignore[method-assign]
+        dataset._upload_file_content = MagicMock(return_value=[{"id": "f1"}])  # type: ignore[method-assign]
+
+        dataset.create()
+
+        serializer.assert_not_called()
+        dataset._upload_file_content.assert_called_once_with({"id": "f1"}, content)
+
+    def test_create_raises_when_input_set_but_serializer_missing(self) -> None:
+        """It raises CreateError when dataset.input is provided without a serializer."""
+        dataset = create_mock_file_dataset()  # no serializer
+        dataset.input = create_test_dataframe(rows=1, with_valid_to=False)
+        dataset._create_metadata = MagicMock(return_value={"id": "f1"})  # type: ignore[method-assign]
+
+        with pytest.raises(CreateError, match=r"serializer must be set"):
+            dataset.create()
 
     def test_create_raises_when_metadata_creation_fails(self) -> None:
         """It propagates errors from metadata creation."""
@@ -182,14 +262,13 @@ class TestGraspFileDatasetInternals:
         assert request_kwargs["json"]["file_path"] == "folder/test"
 
     def test_upload_file_content_puts_json_bytes_and_returns_response(self) -> None:
-        """It uploads content from settings.create.content and returns API response payload."""
+        """It uploads provided content and returns API response payload."""
         linked_service = create_mock_http_linked_service(headers={"Authorization": "Bearer token"})
         linked_service.connection.request.return_value = MockHTTPResponse(json_data={"ok": True})
         dataset = create_mock_file_dataset(linked_service=linked_service)
         content = BytesIO(b'{"test":"4"}')
-        dataset.settings.create.content = content
 
-        response_payload = dataset._upload_file_content({"id": "file-1"})
+        response_payload = dataset._upload_file_content({"id": "file-1"}, content)
 
         assert response_payload == {"ok": True}
         linked_service.connection.request.assert_called_once()

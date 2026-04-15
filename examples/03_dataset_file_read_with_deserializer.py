@@ -1,28 +1,29 @@
 """
-**File:** ``04_dataset_file_create.py``
-**Region:** ``examples/04_dataset_file_create``
+**File:** ``03_dataset_file_read.py``
+**Region:** ``examples/03_dataset_file_read``
 
-Example 04: Create a file with GraspFileDataset via the Grasp File API.
+Example 03: Read data from a Grasp File dataset using GraspFileDataset.
 
 This example demonstrates how to:
 - Create a Grasp File dataset
-- Create a file record and upload content through the API
+- Read file metadata and optional content from the Grasp File API
 """
 
 from __future__ import annotations
 
 import logging
 import uuid
-from io import BytesIO
 
-import pandas as pd
 from ds_common_logger_py_lib import Logger
 from ds_protocol_http_py_lib import HttpLinkedService, HttpLinkedServiceSettings
 from ds_protocol_http_py_lib.enums import AuthType
+from ds_resource_plugin_py_lib.common.resource.dataset.storage_format import DatasetStorageFormatType
+from ds_resource_plugin_py_lib.common.serde.deserialize.pandas import PandasDeserializer
+
 from ds_provider_grasp_py_lib.dataset.file import (
-    CreateSettings,
     GraspFileDataset,
     GraspFileDatasetSettings,
+    ReadSettings,
 )
 
 Logger.configure(
@@ -36,8 +37,9 @@ logger = Logger.get_logger(__name__)
 
 
 def main() -> None:
-    """Main function demonstrating Grasp File dataset create operation."""
+    """Main function demonstrating Grasp File dataset read operation."""
     dataset = GraspFileDataset(
+        deserializer=PandasDeserializer(format=DatasetStorageFormatType.JSON),
         id=uuid.uuid4(),
         name="file-dataset",
         version="1.0.0",
@@ -55,23 +57,13 @@ def main() -> None:
         ),
         settings=GraspFileDatasetSettings(
             url="https://dev.aic-project.com/api/file/file/",
-            create=CreateSettings(
-                acl={
-                    "owners": [
-                        "test-graspdemo@test.com"
-                    ],
-                    "viewers": []
-                },
-                description="test example4",
-                file_path="test4",
-                version="v1.0.0",
-                content = BytesIO(pd.DataFrame([{"test": "4"}]).to_json(orient="records").encode())
-            )
+            read=ReadSettings(download_file=True, limit=2),
         ),
     )
+
     dataset.linked_service.connect()
-    dataset.create()
-    logger.info(f"Successfully performed create operation")
+    dataset.read()
+    logger.info(f"Successfully performed read operation")
     print(dataset.output)
 
 

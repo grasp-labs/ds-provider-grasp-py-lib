@@ -19,6 +19,7 @@ from ds_resource_plugin_py_lib.common.resource.dataset import (
     DatasetSettings,
     TabularDataset,
 )
+from ds_resource_plugin_py_lib.common.resource.dataset.errors import CreateError, ReadError
 from ds_resource_plugin_py_lib.common.resource.errors import ResourceException
 from ds_resource_plugin_py_lib.common.resource.linked_service.errors import AuthorizationError
 from ds_resource_plugin_py_lib.common.serde.deserialize import PandasDeserializer
@@ -54,6 +55,7 @@ class ReadSettings:
     """
 
     download_file: bool = True
+    """If deserializer is set, must be set to True."""
     limit: int = 500
     offset: int = 0
     order_by: str | None = None
@@ -150,8 +152,9 @@ class GraspFileDataset(
         Write the content of the dataset to the file.
         :return: None
         """
+        content = self._resolve_create_content()
         metadata = self._create_metadata()
-        data = self._upload_file_content(metadata)
+        data = self._upload_file_content(metadata, content)
         self.output = pd.DataFrame(data)
 
     def read(self) -> None:
@@ -162,6 +165,16 @@ class GraspFileDataset(
         base_url = self._base_url()
         logger.debug(f"Reading files from {base_url}")
 
+        if self.deserializer is not None and not self.settings.read.download_file:
+            raise ReadError(
+                message="settings.read.download_file must be true when deserializer is set",
+                status_code=400,
+                details={
+                    "type": self.type.value,
+                    "settings": self.settings.serialize(),
+                },
+            )
+
         response = self.linked_service.connection.request(
             method="GET",
             url=base_url,
@@ -170,7 +183,8 @@ class GraspFileDataset(
         )
 
         files = response.json()["data"]
-        if self.settings.read.download_file:
+        should_download = self.settings.read.download_file
+        if should_download:
             for file in files:
                 file_id = file["id"]
                 url = f"{base_url}{file_id}/content/"
@@ -186,7 +200,20 @@ class GraspFileDataset(
                         continue
                 file.update({"content": response.content})
 
-            self.output = pd.DataFrame(files)
+            if self.deserializer is not None:
+                deserialized_frames: list[pd.DataFrame] = []
+                for file in files:
+                    content = file.get("content", b"")
+                    if not content:
+                        continue
+                    deserialized_frames.append(self._deserialize_content(content))
+                self.output = (
+                    pd.concat(deserialized_frames, ignore_index=True)
+                    if deserialized_frames
+                    else pd.DataFrame()
+                )
+            else:
+                self.output = pd.DataFrame(files)
         else:
             self.output = pd.DataFrame(files)
 
@@ -280,7 +307,7 @@ class GraspFileDataset(
         logger.info(f"File metadata created: {data}")
         return data
 
-    def _upload_file_content(self, metadata: dict[str, Any]) -> dict[str, Any]:
+    def _upload_file_content(self, metadata: dict[str, Any], content: Any) -> dict[str, Any]:
         """
         Upload the file content to the file.
         :return: Dict
@@ -299,7 +326,47 @@ class GraspFileDataset(
             method="PUT",
             url=url,
             headers=headers,
-            data=self.settings.create.content,
+            data=content,
         )
         data: dict[str, Any] = response.json()
         return data
+
+    def _resolve_create_content(self) -> Any:
+        """Resolve upload content from serializer(dataset.input) or create settings content."""
+        has_input = self.input is not None and not (
+            isinstance(self.input, pd.DataFrame) and self.input.empty
+        )
+        if has_input and self.serializer is None:
+            raise CreateError(
+                message="serializer must be set when dataset.input is provided",
+                status_code=400,
+                details={
+                    "type": self.type.value,
+                    "settings": self.settings.serialize(),
+                },
+            )
+        if self.serializer is not None and has_input:
+            serialized = self.serializer(self.input)
+            if isinstance(serialized, str):
+                return serialized.encode()
+            if isinstance(serialized, bytearray):
+                return bytes(serialized)
+            if hasattr(serialized, "getvalue"):
+                value = serialized.getvalue()
+                return value.encode() if isinstance(value, str) else value
+            return serialized
+        return self.settings.create.content
+
+    def _deserialize_content(self, content: bytes) -> pd.DataFrame:
+        """Deserialize raw file bytes into a DataFrame using configured deserializer."""
+        if self.deserializer is None:
+            return pd.DataFrame()
+
+        try:
+            deserialized = self.deserializer(content)
+        except Exception:
+            deserialized = self.deserializer(io.BytesIO(content))
+
+        if isinstance(deserialized, pd.DataFrame):
+            return deserialized
+        return pd.DataFrame(deserialized)
