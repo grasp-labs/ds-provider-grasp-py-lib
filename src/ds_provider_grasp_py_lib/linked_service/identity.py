@@ -9,9 +9,38 @@ from dataclasses import dataclass, field
 from typing import Generic, TypeVar
 
 from ds_protocol_http_py_lib import HttpLinkedService, HttpLinkedServiceSettings, enums
-from ds_protocol_http_py_lib.linked_service.http import BasicAuthSettings, OAuth2AuthSettings
+from ds_protocol_http_py_lib.linked_service.http import BearerAuthSettings, OAuth2AuthSettings
 
 from ..enums import ResourceType
+
+
+@dataclass(kw_only=True)
+class IDPOAuth2AuthSettings(OAuth2AuthSettings):
+    """
+    OAuth2 authentication settings for Identity Provider (IdP).
+
+    Attributes:
+        token_url: The URL to obtain the OAuth2 token.
+        client_id: The client ID for OAuth2 authentication.
+        client_secret: The client secret for OAuth2 authentication.
+        scope: The scope of the OAuth2 token.
+    """
+
+    token_endpoint: str = field(default="https://auth.grasp-daas.com/oauth/token/")
+    """The URL to obtain the OAuth2 token. Default is 'https://auth.grasp-daas.com/oauth/token/'"""
+
+
+@dataclass(kw_only=True)
+class IDPBearerAuthSettings(BearerAuthSettings):
+    """
+    Bearer authentication settings for Identity Provider (IdP).
+
+    Attributes:
+        token_endpoint: The URL to obtain the bearer token.
+    """
+
+    token_endpoint: str = field(default="https://auth.grasp-daas.com/rest-auth/login/")
+    """The URL to obtain the bearer token. Default is 'https://auth.grasp-daas.com/rest-auth/login/'"""
 
 
 @dataclass(kw_only=True)
@@ -27,8 +56,8 @@ class GraspIdentityLinkedServiceSettings(HttpLinkedServiceSettings):
         basic: Basic authentication settings (if auth_type is BASIC).
     """
 
-    host: str = field(default="auth-dev.grasp-daas.com/rest-auth/login/")
-    """Grasp Identity login url. Default is 'auth-dev.grasp-daas.com/rest-auth/login/'"""
+    host: str = field(default="auth.grasp-daas.com")
+    """Grasp Identity login url. Default is 'auth.grasp-daas.com/rest-auth/login/'"""
 
     auth_type: enums.AuthType = field(default=enums.AuthType.BASIC)
     """The type of authentication to use. Default is BASIC."""
@@ -36,11 +65,11 @@ class GraspIdentityLinkedServiceSettings(HttpLinkedServiceSettings):
     schema: str = field(default="https")
     """The schema to use for the connection. Default is 'https'."""
 
-    oauth: OAuth2AuthSettings | None = None
+    oauth: IDPOAuth2AuthSettings | None = None
     """OAuth2 authentication settings (if auth_type is OAUTH2)."""
 
-    basic: BasicAuthSettings | None = None
-    """Basic authentication settings (if auth_type is BASIC)."""
+    bearer: IDPBearerAuthSettings | None = None
+    """Bearer authentication settings (if auth_type is BEARER)."""
 
 
 GraspIdentityLinkedServiceSettingsType = TypeVar(

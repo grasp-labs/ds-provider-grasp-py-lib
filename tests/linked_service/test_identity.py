@@ -15,32 +15,36 @@ from ds_provider_grasp_py_lib.enums import ResourceType
 from ds_provider_grasp_py_lib.linked_service.identity import (
     GraspIdentityLinkedService,
     GraspIdentityLinkedServiceSettings,
+    IDPBearerAuthSettings,
+    IDPOAuth2AuthSettings,
 )
 
 
 def test_settings_defaults() -> None:
     """Test that GraspIdentityLinkedServiceSettings has correct default values."""
     settings = GraspIdentityLinkedServiceSettings()
-    assert settings.host == "auth-dev.grasp-daas.com/rest-auth/login/"
+    assert settings.host == "auth.grasp-daas.com"
     assert settings.auth_type.name == "BASIC"
     assert settings.schema == "https"
     assert settings.oauth is None
-    assert settings.basic is None
+    assert settings.bearer is None
 
 
 def test_settings_custom_values() -> None:
     """Test that GraspIdentityLinkedServiceSettings can be instantiated with custom values."""
+    oauth_settings = IDPOAuth2AuthSettings(client_id="id", client_secret="secret")
+    bearer_settings = IDPBearerAuthSettings(username="user", password="pass")
     settings = GraspIdentityLinkedServiceSettings(
         host="custom-host",
-        auth_type=enums.AuthType.BASIC,  # or OAUTH2 if you want to test that
+        auth_type=enums.AuthType.OAUTH2,
         schema="http",
-        oauth="oauth-settings",
-        basic="basic-settings",
+        oauth=oauth_settings,
+        bearer=bearer_settings,
     )
     assert settings.host == "custom-host"
     assert settings.schema == "http"
-    assert settings.oauth == "oauth-settings"
-    assert settings.basic == "basic-settings"
+    assert settings.oauth == oauth_settings
+    assert settings.bearer == bearer_settings
 
 
 def test_linked_service_type_property() -> None:
