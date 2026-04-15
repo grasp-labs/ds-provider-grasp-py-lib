@@ -5,8 +5,8 @@
 Example 03: Read data from a Grasp File dataset using GraspFileDataset.
 
 This example demonstrates how to:
-- Create a Grasp File dataset
-- Read file metadata and optional content from the Grasp File API
+- Create a Grasp File dataset with a Pandas deserializer
+- Read and deserialize downloaded file content into tabular output
 """
 
 from __future__ import annotations
