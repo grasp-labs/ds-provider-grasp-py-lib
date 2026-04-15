@@ -207,11 +207,7 @@ class GraspFileDataset(
                     if not content:
                         continue
                     deserialized_frames.append(self._deserialize_content(content))
-                self.output = (
-                    pd.concat(deserialized_frames, ignore_index=True)
-                    if deserialized_frames
-                    else pd.DataFrame()
-                )
+                self.output = pd.concat(deserialized_frames, ignore_index=True) if deserialized_frames else pd.DataFrame()
             else:
                 self.output = pd.DataFrame(files)
         else:
@@ -333,9 +329,7 @@ class GraspFileDataset(
 
     def _resolve_create_content(self) -> Any:
         """Resolve upload content from serializer(dataset.input) or create settings content."""
-        has_input = self.input is not None and not (
-            isinstance(self.input, pd.DataFrame) and self.input.empty
-        )
+        has_input = self.input is not None and not (isinstance(self.input, pd.DataFrame) and self.input.empty)
         if has_input and self.serializer is None:
             raise CreateError(
                 message="serializer must be set when dataset.input is provided",

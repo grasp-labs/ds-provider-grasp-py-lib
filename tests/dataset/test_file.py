@@ -7,8 +7,7 @@ from unittest.mock import MagicMock
 
 import pandas as pd
 import pytest
-from ds_resource_plugin_py_lib.common.resource.dataset.errors import ReadError
-from ds_resource_plugin_py_lib.common.resource.dataset.errors import CreateError
+from ds_resource_plugin_py_lib.common.resource.dataset.errors import CreateError, ReadError
 from ds_resource_plugin_py_lib.common.resource.errors import ResourceException
 from ds_resource_plugin_py_lib.common.resource.linked_service.errors import AuthorizationError, ConnectionError
 
