@@ -382,11 +382,22 @@ class GraspFileDataset(
 
     def _deserialize_content(self, content: bytes) -> pd.DataFrame:
         """Deserialize raw file bytes into a DataFrame using configured deserializer."""
+        deserializer = self.deserializer
+        if deserializer is None:
+            raise ReadError(
+                message="Deserializer is not set.",
+                status_code=400,
+                details={
+                    "type": self.type.value,
+                    "settings": self.settings.serialize(),
+                },
+            )
+
         try:
-            deserialized = self.deserializer(content)
+            return deserializer(content)
         except Exception:
             try:
-                deserialized = self.deserializer(io.BytesIO(content))
+                return deserializer(io.BytesIO(content))
             except Exception as exc:
                 raise ReadError(
                     message=f"Failed to deserialize content: {exc!s}",
@@ -396,5 +407,3 @@ class GraspFileDataset(
                         "settings": self.settings.serialize(),
                     },
                 ) from exc
-
-        return pd.DataFrame(deserialized)
