@@ -333,6 +333,15 @@ class GraspFileDataset(
     def _resolve_create_content(self) -> Any:
         """Resolve upload content from serializer(dataset.input) or create settings content."""
         has_input = self.input is not None and not (isinstance(self.input, pd.DataFrame) and self.input.empty)
+        if has_input and self.settings.create.content:
+            raise CreateError(
+                message="Both dataset.input and settings.create.content are provided. Please provide only one source of content.",
+                status_code=400,
+                details={
+                    "type": self.type.value,
+                    "settings": self.settings.serialize(),
+                },
+            )
         if has_input and self.serializer is None:
             raise CreateError(
                 message="serializer must be set when dataset.input is provided",
