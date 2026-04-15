@@ -37,6 +37,8 @@ logger = Logger.get_logger(__name__)
 
 def main() -> None:
     """Main function demonstrating Grasp File dataset create operation."""
+    # Example A: direct binary upload via settings.create.content.
+    # Do not set dataset.input in this flow.
     dataset = GraspFileDataset(
         id=uuid.uuid4(),
         name="file-dataset",
@@ -65,7 +67,9 @@ def main() -> None:
                 description="test example4",
                 file_path="test4",
                 version="v1.0.0",
-                content = BytesIO(pd.DataFrame([{"test": "4"}]).to_json(orient="records").encode())
+                # `content` is the only payload source in this example.
+                # If dataset.input is also set, create() raises CreateError.
+                content=BytesIO(pd.DataFrame([{"test": "4"}]).to_json(orient="records").encode())
             )
         ),
     )

@@ -34,6 +34,11 @@ logger = Logger.get_logger(__name__, package=True)
 class CreateSettings:
     """
     Settings for create operations.
+
+    Content source contract:
+    - Use `dataset.input` together with `dataset.serializer` to generate upload content, OR
+    - Provide raw bytes/stream via `create.content`.
+    - Never provide both at the same time.
     """
 
     acl: dict[str, Any] | None = field(default_factory=dict)
@@ -45,17 +50,22 @@ class CreateSettings:
     version: str | None = field(default="1.0.0")
 
     content: io.BytesIO | None = field(default=None)
-    """File content to be uploaded."""
+    """Raw upload content used only when `dataset.input` is not used."""
 
 
 @dataclass(kw_only=True)
 class ReadSettings:
     """
     Settings for read operations.
+
+    Read contract:
+    - If a deserializer is configured on the dataset, `download_file` must be True
+      so content bytes can be fetched and deserialized.
+    - Without a deserializer, the dataset can return metadata only (`download_file=False`).
     """
 
     download_file: bool = True
-    """If deserializer is set, must be set to True."""
+    """Download file bytes during read; required when deserializer is configured."""
     limit: int = 500
     offset: int = 0
     order_by: str | None = None
@@ -72,7 +82,7 @@ class ReadSettings:
 
 @dataclass(kw_only=True)
 class GraspFileDatasetSettings(DatasetSettings):
-    """Settings for Grasp file dataset operations."""
+    """Settings for Grasp file dataset create/read behavior and API base URL."""
 
     url: str | None = field(default="https://grasp-daas.com/api/file-dev/v2/file/")
     create: CreateSettings = field(default_factory=CreateSettings)
@@ -206,10 +216,7 @@ class GraspFileDataset(
                     content = file.get("content", b"")
                     if not content:
                         continue
-                    try:
-                        deserialized_frames.append(self.deserializer(content))
-                    except Exception as exc:
-                        raise ReadError(f"Failed to deserialize content: {exc!s}") from exc
+                    deserialized_frames.append(self._deserialize_content(content))
                 self.output = pd.concat(deserialized_frames, ignore_index=True) if deserialized_frames else pd.DataFrame()
             else:
                 self.output = pd.DataFrame(files)
@@ -311,13 +318,11 @@ class GraspFileDataset(
         Upload the file content to the file.
         :return: Dict
         """
-        headers = self.linked_service.settings.headers
-        headers.update(
-            {
-                "Content-Type": "application/octet-stream",
-                "accept": "*/*",
-            }
-        )
+        headers = {
+            **self.linked_service.settings.headers,
+            "Content-Type": "application/octet-stream",
+            "accept": "*/*",
+        }
         base_url = self._base_url()
         url = f"{base_url}{metadata['id']}/content/"
 
@@ -333,7 +338,9 @@ class GraspFileDataset(
     def _resolve_create_content(self) -> Any:
         """Resolve upload content from serializer(dataset.input) or create settings content."""
         has_input = self.input is not None and not (isinstance(self.input, pd.DataFrame) and self.input.empty)
-        if has_input and self.settings.create.content:
+        has_settings_content = self.settings.create.content is not None
+
+        if has_input and has_settings_content:
             raise CreateError(
                 message="Both dataset.input and settings.create.content are provided. Please provide only one source of content.",
                 status_code=400,
@@ -361,4 +368,33 @@ class GraspFileDataset(
                 value = serialized.getvalue()
                 return value.encode() if isinstance(value, str) else value
             return serialized
-        return self.settings.create.content
+        if has_settings_content:
+            return self.settings.create.content
+
+        raise CreateError(
+            message="Either dataset.input with serializer or settings.create.content must be provided",
+            status_code=400,
+            details={
+                "type": self.type.value,
+                "settings": self.settings.serialize(),
+            },
+        )
+
+    def _deserialize_content(self, content: bytes) -> pd.DataFrame:
+        """Deserialize raw file bytes into a DataFrame using configured deserializer."""
+        try:
+            deserialized = self.deserializer(content)
+        except Exception:
+            try:
+                deserialized = self.deserializer(io.BytesIO(content))
+            except Exception as exc:
+                raise ReadError(
+                    message=f"Failed to deserialize content: {exc!s}",
+                    status_code=500,
+                    details={
+                        "type": self.type.value,
+                        "settings": self.settings.serialize(),
+                    },
+                ) from exc
+
+        return pd.DataFrame(deserialized)

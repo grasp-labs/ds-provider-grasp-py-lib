@@ -37,6 +37,8 @@ logger = Logger.get_logger(__name__)
 def main() -> None:
     """Main function demonstrating Grasp File dataset read operation."""
     dataset = GraspFileDataset(
+        # No deserializer in this example: output contains file metadata
+        # and optional raw content bytes (when download_file=True).
         id=uuid.uuid4(),
         name="file-dataset",
         version="1.0.0",
@@ -54,7 +56,11 @@ def main() -> None:
         ),
         settings=GraspFileDatasetSettings(
             url="https://dev.aic-project.com/api/file/file/",
-            read=ReadSettings(download_file=True, limit=2),
+            read=ReadSettings(
+                # In binary mode this is optional; True includes `content` bytes in output.
+                download_file=True,
+                limit=2,
+            ),
         ),
     )
 

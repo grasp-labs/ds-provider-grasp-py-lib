@@ -13,7 +13,6 @@ from __future__ import annotations
 
 import logging
 import uuid
-from io import BytesIO
 
 import pandas as pd
 from ds_common_logger_py_lib import Logger
@@ -39,7 +38,11 @@ logger = Logger.get_logger(__name__)
 
 
 def main() -> None:
+    # Example B: create from dataset.input + serializer.
+    # In this flow, keep settings.create.content unset.
     dataset = GraspFileDataset(
+        # Serializer is required when dataset.input is used as payload source.
+        # `orient=records` gives a JSON array like [{"test":"9"}].
         serializer=PandasSerializer(format=DatasetStorageFormatType.JSON, kwargs={"orient": "records"}),
         # serializer must be set when running create from input
         id=uuid.uuid4(),
@@ -69,9 +72,12 @@ def main() -> None:
                 description="test example9",
                 file_path="test9",
                 version="v1.0.0",
+                # Do not set `content` here when using dataset.input.
+                # input + content together raises CreateError.
             )
         ),
     )
+    # Payload source for this example: dataset.input (serialized above).
     dataset.input = pd.DataFrame([{"test": "9"}])
     dataset.linked_service.connect()
     dataset.create()

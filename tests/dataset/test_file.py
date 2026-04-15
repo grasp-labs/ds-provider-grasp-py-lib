@@ -125,6 +125,26 @@ class TestGraspFileDatasetRead:
 
         assert dataset.output.iloc[0]["content"] == b""
 
+    def test_read_skips_deserializer_when_download_returns_404(self) -> None:
+        """It keeps output empty and does not call deserializer when downloaded content is missing."""
+        linked_service = create_mock_http_linked_service()
+        linked_service.connection.request.side_effect = [
+            MockHTTPResponse(json_data={"data": [{"id": "f1"}]}),
+            ResourceException(message="missing", status_code=404),
+        ]
+        deserializer = MagicMock()
+        dataset = create_mock_file_dataset(
+            linked_service=linked_service,
+            download_file=True,
+            deserializer=deserializer,
+        )
+
+        dataset.read()
+
+        assert dataset.output.empty
+        deserializer.assert_not_called()
+        assert linked_service.connection.request.call_count == 2
+
     def test_read_passes_optional_query_params(self) -> None:
         """It forwards optional read filters as query params on list request."""
         linked_service = create_mock_http_linked_service()
@@ -157,6 +177,26 @@ class TestGraspFileDatasetRead:
             "tag.type": "png",
             "meta.category": "data",
         }
+
+    def test_read_wraps_deserialization_failures_with_read_error(self) -> None:
+        """It wraps deserializer failures in ReadError with status/details."""
+        linked_service = create_mock_http_linked_service()
+        linked_service.connection.request.side_effect = [
+            MockHTTPResponse(json_data={"data": [{"id": "f1"}]}),
+            MockHTTPResponse(content=b"invalid"),
+        ]
+        deserializer = MagicMock(side_effect=ValueError("bad payload"))
+        dataset = create_mock_file_dataset(
+            linked_service=linked_service,
+            download_file=True,
+            deserializer=deserializer,
+        )
+
+        with pytest.raises(ReadError) as exc_info:
+            dataset.read()
+
+        assert exc_info.value.status_code == 500
+        assert "Failed to deserialize content" in str(exc_info.value)
 
 
 class TestGraspFileDatasetCreate:
@@ -210,8 +250,12 @@ class TestGraspFileDatasetCreate:
         dataset.input = create_test_dataframe(rows=1, with_valid_to=False)
         dataset._create_metadata = MagicMock(return_value={"id": "f1"})  # type: ignore[method-assign]
 
-        with pytest.raises(CreateError, match=r"serializer must be set"):
+        with pytest.raises(CreateError, match=r"serializer must be set") as exc_info:
             dataset.create()
+
+        assert exc_info.value.status_code == 400
+        assert exc_info.value.details["type"] == ResourceType.DATASET_FILE.value
+        assert exc_info.value.details["settings"] == dataset.settings.serialize()
 
     def test_create_raises_when_metadata_creation_fails(self) -> None:
         """It propagates errors from metadata creation."""
@@ -220,6 +264,23 @@ class TestGraspFileDatasetCreate:
         dataset._create_metadata = MagicMock(side_effect=CreateError("boom"))  # type: ignore[method-assign]
 
         with pytest.raises(CreateError):
+            dataset.create()
+
+    def test_create_raises_when_both_input_and_settings_content_are_provided(self) -> None:
+        """It raises CreateError when both dataset.input and settings content are provided."""
+        serializer = MagicMock(return_value=b"serialized")
+        dataset = create_mock_file_dataset(serializer=serializer)
+        dataset.input = create_test_dataframe(rows=1, with_valid_to=False)
+        dataset.settings.create.content = BytesIO(b"binary-content")
+
+        with pytest.raises(CreateError, match=r"Both dataset\.input and settings\.create\.content"):
+            dataset.create()
+
+    def test_create_raises_when_no_content_source_is_provided(self) -> None:
+        """It raises CreateError when neither dataset.input nor settings content is provided."""
+        dataset = create_mock_file_dataset()
+
+        with pytest.raises(CreateError, match=r"Either dataset\.input with serializer"):
             dataset.create()
 
 
@@ -277,6 +338,16 @@ class TestGraspFileDatasetInternals:
         assert request_kwargs["data"] is content
         assert request_kwargs["headers"]["Content-Type"] == "application/octet-stream"
         assert request_kwargs["headers"]["accept"] == "*/*"
+
+    def test_upload_file_content_does_not_mutate_linked_service_headers(self) -> None:
+        """It keeps linked service headers immutable when adding upload content headers."""
+        linked_service = create_mock_http_linked_service(headers={"Authorization": "Bearer token"})
+        linked_service.connection.request.return_value = MockHTTPResponse(json_data={"ok": True})
+        dataset = create_mock_file_dataset(linked_service=linked_service)
+
+        dataset._upload_file_content({"id": "file-1"}, BytesIO(b"x"))
+
+        assert linked_service.settings.headers == {"Authorization": "Bearer token"}
 
 
 class TestGraspFileDatasetList:

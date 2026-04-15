@@ -39,6 +39,8 @@ logger = Logger.get_logger(__name__)
 def main() -> None:
     """Main function demonstrating Grasp File dataset read operation."""
     dataset = GraspFileDataset(
+        # With a deserializer, read() expects downloaded file bytes.
+        # Therefore settings.read.download_file must stay True.
         deserializer=PandasDeserializer(format=DatasetStorageFormatType.JSON),
         id=uuid.uuid4(),
         name="file-dataset",
@@ -57,7 +59,11 @@ def main() -> None:
         ),
         settings=GraspFileDatasetSettings(
             url="https://dev.aic-project.com/api/file/file/",
-            read=ReadSettings(download_file=True, limit=3),
+            read=ReadSettings(
+                # Required when deserializer is configured on the dataset.
+                download_file=True,
+                limit=3,
+            ),
         ),
     )
 
