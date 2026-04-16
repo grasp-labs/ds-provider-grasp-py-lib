@@ -20,7 +20,7 @@ from ds_resource_plugin_py_lib.common.resource.dataset import (
     TabularDataset,
 )
 from ds_resource_plugin_py_lib.common.resource.dataset.errors import CreateError, ReadError
-from ds_resource_plugin_py_lib.common.resource.errors import ResourceException
+from ds_resource_plugin_py_lib.common.resource.errors import ResourceException, NotSupportedError
 from ds_resource_plugin_py_lib.common.resource.linked_service.errors import AuthorizationError
 from ds_resource_plugin_py_lib.common.serde.deserialize import PandasDeserializer
 from ds_resource_plugin_py_lib.common.serde.serialize import PandasSerializer
@@ -227,63 +227,45 @@ class GraspFileDataset(
             self.output = pd.DataFrame(files)
 
     def update(self) -> NoReturn:
-        raise AuthorizationError(
-            message="You are not authorized to update a Grasp File dataset",
-            status_code=403,
-            details={
-                "type": self.type.value,
-                "settings": self.settings.serialize(),
-            },
+        logger.error("Update operation is not supported by Grasp file dataset.")
+        raise NotSupportedError(
+            message="Method 'update' is not supported by this provider.",
+            details={"method": "update", "provider": self.type.value},
         )
 
     def upsert(self) -> NoReturn:
-        raise AuthorizationError(
-            message="You are not authorized to upsert a Grasp File dataset",
-            status_code=403,
-            details={
-                "type": self.type.value,
-                "settings": self.settings.serialize(),
-            },
+        logger.error("Upsert operation is not supported by Grasp file dataset.")
+        raise NotSupportedError(
+            message="Method 'upsert' is not supported by this provider.",
+            details={"method": "upsert", "provider": self.type.value},
         )
 
     def delete(self) -> NoReturn:
-        raise AuthorizationError(
-            message="You are not authorized to delete a Grasp File dataset",
-            status_code=403,
-            details={
-                "type": self.type.value,
-                "settings": self.settings.serialize(),
-            },
+        logger.error("Delete operation is not supported by Grasp file dataset.")
+        raise NotSupportedError(
+            message="Method 'delete' is not supported by this provider.",
+            details={"method": "delete", "provider": self.type.value},
         )
 
     def purge(self) -> NoReturn:
-        raise AuthorizationError(
-            message="You are not authorized to purge a Grasp File dataset",
-            status_code=403,
-            details={
-                "type": self.type.value,
-                "settings": self.settings.serialize(),
-            },
+        logger.error("Purge operation is not supported by Grasp file dataset.")
+        raise NotSupportedError(
+            message="Method 'purge' is not supported by this provider.",
+            details={"method": "purge", "provider": self.type.value},
         )
 
     def list(self) -> NoReturn:
-        raise AuthorizationError(
-            message="You are not authorized to list a Grasp File dataset",
-            status_code=403,
-            details={
-                "type": self.type.value,
-                "settings": self.settings.serialize(),
-            },
+        logger.error("List operation is not supported by Grasp file dataset.")
+        raise NotSupportedError(
+            message="Method 'list' is not supported by this provider.",
+            details={"method": "list", "provider": self.type.value},
         )
 
     def rename(self) -> NoReturn:
-        raise AuthorizationError(
-            message="You are not authorized to rename a Grasp File dataset",
-            status_code=403,
-            details={
-                "type": self.type.value,
-                "settings": self.settings.serialize(),
-            },
+        logger.error("Rename operation is not supported by Grasp file dataset.")
+        raise NotSupportedError(
+            message="Method 'rename' is not supported by this provider.",
+            details={"method": "rename", "provider": self.type.value},
         )
 
     def close(self) -> None:
