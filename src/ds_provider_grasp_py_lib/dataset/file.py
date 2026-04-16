@@ -199,7 +199,7 @@ class GraspFileDataset(
         else:
             self.output = pd.DataFrame(files)
 
-    def download_files(self, base_url: str, files):
+    def download_files(self, base_url: str, files: list[dict[str, Any]]) -> None:
         for file in files:
             file_id = file["id"]
             url = f"{base_url}{file_id}/content/"
