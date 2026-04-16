@@ -11,6 +11,7 @@ Covers:
 from __future__ import annotations
 
 from io import BytesIO
+from typing import Any, cast
 from unittest.mock import MagicMock
 
 import pandas as pd
@@ -243,7 +244,7 @@ class TestGraspFileDatasetCreate:
     def test_create_raises_when_no_content_source_is_provided(self) -> None:
         """It raises CreateError when neither create.content nor dataset.input is provided."""
         dataset = create_mock_file_dataset()
-        dataset.input = None
+        dataset.input = cast(Any, None)
 
         with pytest.raises(CreateError, match=r"No create payload provided") as exc_info:
             dataset.create()
@@ -285,6 +286,18 @@ class TestGraspFileDatasetCreate:
 
         serializer.assert_called_once_with(dataset.input)
         dataset._upload_file_content.assert_called_once_with({"id": "f1"}, b"[]")
+
+    def test_create_raises_when_settings_content_is_not_bytesio(self) -> None:
+        """It raises CreateError when settings.create.content is not a BytesIO stream."""
+        dataset = create_mock_file_dataset()
+        dataset.settings.create.content = b"binary-content"  # type: ignore[assignment]
+
+        with pytest.raises(CreateError, match=r"settings\.create\.content must be io\.BytesIO") as exc_info:
+            dataset.create()
+
+        assert exc_info.value.status_code == 400
+        assert exc_info.value.details["type"] == ResourceType.DATASET_FILE.value
+        assert exc_info.value.details["settings"] == dataset.settings.serialize()
 
 
 class TestGraspFileDatasetInternals:

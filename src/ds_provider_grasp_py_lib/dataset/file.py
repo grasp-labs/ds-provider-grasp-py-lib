@@ -36,6 +36,7 @@ class CreateSettings:
 
     Content source contract:
     - `create.content` has precedence when provided.
+    - `create.content` must be provided as `io.BytesIO`.
     - Otherwise create uses `dataset.input` serialized by `dataset.serializer`.
     - If neither source is available, create raises `CreateError`.
     """
@@ -48,8 +49,8 @@ class CreateSettings:
     tags: dict[str, Any] | None = field(default_factory=dict)
     version: str | None = field(default="1.0.0")
 
-    content: bytes | bytearray | io.BytesIO | None = field(default=None)
-    """Raw upload payload. When set, it overrides `dataset.input` as create source."""
+    content: io.BytesIO | None = field(default=None)
+    """Raw upload payload stream. When set, it overrides `dataset.input` as create source."""
 
 
 @dataclass(kw_only=True)
@@ -333,6 +334,15 @@ class GraspFileDataset(
     def _resolve_create_content(self) -> Any:
         """Resolve payload from `create.content` first, then from serialized `dataset.input`."""
         if self.settings.create.content is not None:
+            if not isinstance(self.settings.create.content, io.BytesIO):
+                raise CreateError(
+                    message="settings.create.content must be io.BytesIO",
+                    status_code=400,
+                    details={
+                        "type": self.type.value,
+                        "settings": self.settings.serialize(),
+                    },
+                )
             # Explicit binary content is the highest-priority source.
             return self.settings.create.content
 
