@@ -126,7 +126,7 @@ class GraspFileDataset(
         content = self._resolve_create_content()
         metadata = self._create_metadata()
         data = self._upload_file_content(metadata, content)
-        self.output = pd.DataFrame(data)
+        self.output = pd.DataFrame([data]) if isinstance(data, dict) else pd.DataFrame(data)
 
     def read(self) -> None:
         """
