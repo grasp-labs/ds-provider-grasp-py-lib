@@ -35,9 +35,9 @@ class CreateSettings:
     Settings for create operations.
 
     Content source contract:
-    - Use `dataset.input` together with `dataset.serializer` to generate upload content, OR
-    - Provide raw bytes/stream via `create.content`.
-    - Never provide both at the same time.
+    - `create.content` has precedence when provided.
+    - Otherwise create uses `dataset.input` serialized by `dataset.serializer`.
+    - If neither source is available, create raises `CreateError`.
     """
 
     acl: dict[str, Any] | None = field(default_factory=dict)
@@ -48,8 +48,8 @@ class CreateSettings:
     tags: dict[str, Any] | None = field(default_factory=dict)
     version: str | None = field(default="1.0.0")
 
-    content: io.BytesIO | None = field(default=None)
-    """Raw upload content used only when `dataset.input` is not used."""
+    content: bytes | bytearray | io.BytesIO | None = field(default=None)
+    """Raw upload payload. When set, it overrides `dataset.input` as create source."""
 
 
 @dataclass(kw_only=True)
@@ -212,6 +212,7 @@ class GraspFileDataset(
                 if exc.status_code == 404:
                     file.update({"content": b""})
                     continue
+                raise
 
         if deserialize:
             deserialized_frames: list[pd.DataFrame] = []
@@ -330,20 +331,23 @@ class GraspFileDataset(
         return data
 
     def _resolve_create_content(self) -> Any:
-        """Resolve upload content from serializer(dataset.input) or create settings content."""
-        has_input = isinstance(self.input, pd.DataFrame) and not self.input.empty
-        has_settings_content = self.settings.create.content is not None
+        """Resolve payload from `create.content` first, then from serialized `dataset.input`."""
+        if self.settings.create.content is not None:
+            # Explicit binary content is the highest-priority source.
+            return self.settings.create.content
 
-        if has_input and has_settings_content:
+        has_input = isinstance(self.input, pd.DataFrame)
+        if not has_input:
             raise CreateError(
-                message="Both dataset.input and settings.create.content are provided. Please provide only one source of content.",
+                message="No create payload provided. Set settings.create.content or dataset.input.",
                 status_code=400,
                 details={
                     "type": self.type.value,
                     "settings": self.settings.serialize(),
                 },
             )
-        if has_input and self.serializer is None:
+
+        if self.serializer is None:
             raise CreateError(
                 message="serializer must be set when dataset.input is provided",
                 status_code=400,
@@ -352,27 +356,17 @@ class GraspFileDataset(
                     "settings": self.settings.serialize(),
                 },
             )
-        if self.serializer is not None and has_input:
-            serialized = self.serializer(self.input)
-            if isinstance(serialized, str):
-                return serialized.encode()
-            if isinstance(serialized, bytearray):
-                return bytes(serialized)
-            if hasattr(serialized, "getvalue"):
-                value = serialized.getvalue()
-                return value.encode() if isinstance(value, str) else value
-            return serialized
-        if has_settings_content:
-            return self.settings.create.content
 
-        raise CreateError(
-            message="Either dataset.input with serializer or settings.create.content must be provided",
-            status_code=400,
-            details={
-                "type": self.type.value,
-                "settings": self.settings.serialize(),
-            },
-        )
+        serialized = self.serializer(self.input)
+        if isinstance(serialized, str):
+            return serialized.encode()
+        if isinstance(serialized, bytearray):
+            return bytes(serialized)
+        if hasattr(serialized, "getvalue"):
+            value = serialized.getvalue()
+            return value.encode() if isinstance(value, str) else value
+        return serialized
+
 
     def _deserialize_content(self, content: bytes) -> pd.DataFrame:
         """Deserialize raw file bytes into a DataFrame using configured deserializer."""

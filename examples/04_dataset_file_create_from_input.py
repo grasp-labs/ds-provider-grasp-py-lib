@@ -39,7 +39,7 @@ logger = Logger.get_logger(__name__)
 
 def main() -> None:
     # Example B: create from dataset.input + serializer.
-    # In this flow, keep settings.create.content unset.
+    # Keep settings.create.content unset in this flow so payload comes from input.
     dataset = GraspFileDataset(
         # Serializer is required when dataset.input is used as payload source.
         # `orient=records` gives a JSON array like [{"test":"9"}].
@@ -72,8 +72,8 @@ def main() -> None:
                 description="test example9",
                 file_path="test9",
                 version="v1.0.0",
-                # Do not set `content` here when using dataset.input.
-                # input + content together raises CreateError.
+                # Leave `content` unset to use serialized dataset.input payload.
+                # If `content` is set, it overrides dataset.input.
             )
         ),
     )

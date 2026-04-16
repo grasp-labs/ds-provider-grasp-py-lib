@@ -218,11 +218,36 @@ class TestGraspFileDatasetCreate:
         serializer.assert_not_called()
         dataset._upload_file_content.assert_called_once_with({"id": "f1"}, content)
 
+    def test_create_uses_settings_content_when_both_input_and_content_are_provided(self) -> None:
+        """It prioritizes settings.create.content over dataset.input when both are set."""
+        serializer = MagicMock(return_value=b"serialized")
+        dataset = create_mock_file_dataset(serializer=serializer)
+        dataset.input = create_test_dataframe(rows=1, with_valid_to=False)
+        dataset.settings.create.content = BytesIO(b"binary-content")
+        dataset._create_metadata = MagicMock(return_value={"id": "f1"})  # type: ignore[method-assign]
+        dataset._upload_file_content = MagicMock(return_value=[{"id": "f1"}])  # type: ignore[method-assign]
+
+        dataset.create()
+
+        serializer.assert_not_called()
+        dataset._upload_file_content.assert_called_once_with({"id": "f1"}, dataset.settings.create.content)
+
+    def test_create_raises_when_no_content_source_is_provided(self) -> None:
+        """It raises CreateError when neither create.content nor dataset.input is provided."""
+        dataset = create_mock_file_dataset()
+        dataset.input = None
+
+        with pytest.raises(CreateError, match=r"No create payload provided") as exc_info:
+            dataset.create()
+
+        assert exc_info.value.status_code == 400
+        assert exc_info.value.details["type"] == ResourceType.DATASET_FILE.value
+        assert exc_info.value.details["settings"] == dataset.settings.serialize()
+
     def test_create_raises_when_input_set_but_serializer_missing(self) -> None:
         """It raises CreateError when dataset.input is provided without a serializer."""
-        dataset = create_mock_file_dataset()  # no serializer
+        dataset = create_mock_file_dataset()
         dataset.input = create_test_dataframe(rows=1, with_valid_to=False)
-        dataset._create_metadata = MagicMock(return_value={"id": "f1"})  # type: ignore[method-assign]
 
         with pytest.raises(CreateError, match=r"serializer must be set") as exc_info:
             dataset.create()
@@ -240,22 +265,18 @@ class TestGraspFileDatasetCreate:
         with pytest.raises(CreateError):
             dataset.create()
 
-    def test_create_raises_when_both_input_and_settings_content_are_provided(self) -> None:
-        """It raises CreateError when both dataset.input and settings content are provided."""
-        serializer = MagicMock(return_value=b"serialized")
+    def test_create_uses_serializer_output_for_empty_dataframe_input(self) -> None:
+        """It treats an empty DataFrame as valid input and serializes/uploads it."""
+        serializer = MagicMock(return_value=b"[]")
         dataset = create_mock_file_dataset(serializer=serializer)
-        dataset.input = create_test_dataframe(rows=1, with_valid_to=False)
-        dataset.settings.create.content = BytesIO(b"binary-content")
+        dataset.input = pd.DataFrame()
+        dataset._create_metadata = MagicMock(return_value={"id": "f1"})  # type: ignore[method-assign]
+        dataset._upload_file_content = MagicMock(return_value=[{"id": "f1"}])  # type: ignore[method-assign]
 
-        with pytest.raises(CreateError, match=r"Both dataset\.input and settings\.create\.content"):
-            dataset.create()
+        dataset.create()
 
-    def test_create_raises_when_no_content_source_is_provided(self) -> None:
-        """It raises CreateError when neither dataset.input nor settings content is provided."""
-        dataset = create_mock_file_dataset()
-
-        with pytest.raises(CreateError, match=r"Either dataset\.input with serializer"):
-            dataset.create()
+        serializer.assert_called_once_with(dataset.input)
+        dataset._upload_file_content.assert_called_once_with({"id": "f1"}, b"[]")
 
 
 class TestGraspFileDatasetInternals:
