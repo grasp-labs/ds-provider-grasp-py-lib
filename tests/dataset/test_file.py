@@ -244,7 +244,7 @@ class TestGraspFileDatasetCreate:
     def test_create_raises_when_no_content_source_is_provided(self) -> None:
         """It raises CreateError when neither create.content nor dataset.input is provided."""
         dataset = create_mock_file_dataset()
-        dataset.input = cast(Any, None)
+        dataset.input = cast("Any", None)
 
         with pytest.raises(CreateError, match=r"No create payload provided") as exc_info:
             dataset.create()
