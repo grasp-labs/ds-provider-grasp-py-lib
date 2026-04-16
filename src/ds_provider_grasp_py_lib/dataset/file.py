@@ -195,31 +195,34 @@ class GraspFileDataset(
         files = response.json()["data"]
         should_download = self.settings.read.download_file
         if should_download:
-            for file in files:
-                file_id = file["id"]
-                url = f"{base_url}{file_id}/content/"
-                try:
-                    response = self.linked_service.connection.request(
-                        method="GET",
-                        url=url,
-                        headers=self.linked_service.settings.headers,
-                    )
-                except ResourceException as exc:
-                    if exc.status_code == 404:
-                        file.update({"content": b""})
-                        continue
-                file.update({"content": response.content})
+            self.download_files(base_url, files)
+        else:
+            self.output = pd.DataFrame(files)
 
-            if self.deserializer is not None:
-                deserialized_frames: list[pd.DataFrame] = []
-                for file in files:
-                    content = file.get("content", b"")
-                    if not content:
-                        continue
-                    deserialized_frames.append(self._deserialize_content(content))
-                self.output = pd.concat(deserialized_frames, ignore_index=True) if deserialized_frames else pd.DataFrame()
-            else:
-                self.output = pd.DataFrame(files)
+    def download_files(self, base_url: str, files):
+        for file in files:
+            file_id = file["id"]
+            url = f"{base_url}{file_id}/content/"
+            try:
+                response = self.linked_service.connection.request(
+                    method="GET",
+                    url=url,
+                    headers=self.linked_service.settings.headers,
+                )
+                file.update({"content": response.content})
+            except ResourceException as exc:
+                if exc.status_code == 404:
+                    file.update({"content": b""})
+                    continue
+
+        if self.deserializer is not None:
+            deserialized_frames: list[pd.DataFrame] = []
+            for file in files:
+                content = file.get("content", b"")
+                if not content:
+                    continue
+                deserialized_frames.append(self._deserialize_content(content))
+            self.output = pd.concat(deserialized_frames, ignore_index=True) if deserialized_frames else pd.DataFrame()
         else:
             self.output = pd.DataFrame(files)
 
