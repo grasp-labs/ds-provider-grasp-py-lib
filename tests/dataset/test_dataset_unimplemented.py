@@ -207,15 +207,6 @@ class TestGraspFileDatasetUnsupported:
         assert exc_info.value.status_code == 501
         assert exc_info.value.details == {"method": "purge", "provider": ResourceType.DATASET_FILE.value}
 
-    def test_list_raises_not_supported_error(self) -> None:
-        """It raises NotSupportedError for list operation."""
-        dataset = create_mock_file_dataset()
-        with pytest.raises(NotSupportedError) as exc_info:
-            dataset.list()
-        assert "Method 'list' is not supported by this provider." in str(exc_info.value)
-        assert exc_info.value.status_code == 501
-        assert exc_info.value.details == {"method": "list", "provider": ResourceType.DATASET_FILE.value}
-
     def test_rename_raises_not_supported_error(self) -> None:
         """It raises NotSupportedError for rename operation."""
         dataset = create_mock_file_dataset()

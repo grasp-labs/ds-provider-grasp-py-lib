@@ -1,6 +1,6 @@
 """
-**File:** ``03_dataset_file_read_with_deserializer.py``
-**Region:** ``examples/03_dataset_file_read_with_deserializer``
+**File:** ``03_dataset_file_read.py``
+**Region:** ``examples/03_dataset_file_read``
 
 Example 03: Read data from a Grasp File dataset using GraspFileDataset.
 
@@ -39,8 +39,8 @@ logger = Logger.get_logger(__name__)
 def main() -> None:
     """Main function demonstrating Grasp File dataset read operation."""
     dataset = GraspFileDataset(
-        # With a deserializer, read() expects downloaded file bytes.
-        # Therefore settings.read.download_file must stay True.
+        # With a deserializer, read() always downloads file bytes.
+        # deserializer must be provided for read().
         deserializer=PandasDeserializer(format=DatasetStorageFormatType.JSON),
         id=uuid.uuid4(),
         name="file-dataset",
@@ -60,8 +60,6 @@ def main() -> None:
         settings=GraspFileDatasetSettings(
             url="https://dev.aic-project.com/api/file/file/",
             read=ReadSettings(
-                # Required when deserializer is configured on the dataset.
-                download_file=True,
                 limit=3,
             ),
         ),

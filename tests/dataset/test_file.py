@@ -36,41 +36,19 @@ class TestGraspFileDatasetRead:
     def test_read_raises_connection_error_when_connection_not_set(self) -> None:
         """It raises ConnectionError when linked_service.connection is None."""
         linked_service = create_mock_http_linked_service(with_connection=False)
-        dataset = create_mock_file_dataset(linked_service=linked_service)
+        dataset = create_mock_file_dataset(linked_service=linked_service, deserializer=MagicMock())
         with pytest.raises(ConnectionError) as exc_info:
             dataset.read()
         assert "Session is not initialized" in str(exc_info.value)
 
-    def test_read_returns_files_without_content_when_download_disabled(self) -> None:
-        """It returns file metadata only when download_file=False."""
-        linked_service = create_mock_http_linked_service()
-        linked_service.connection.request.return_value = MockHTTPResponse(
-            json_data={"data": [{"id": "f1", "name": "file-1"}]},
-        )
-        dataset = create_mock_file_dataset(linked_service=linked_service, download_file=False)
+    def test_read_raises_when_deserializer_is_not_set(self) -> None:
+        """It requires a deserializer and suggests list() for raw/binary output."""
+        dataset = create_mock_file_dataset(deserializer=None)
 
-        dataset.read()
+        with pytest.raises(ReadError, match=r"Deserializer must be set for read\(\)") as exc_info:
+            dataset.read()
 
-        assert len(dataset.output) == 1
-        assert dataset.output.iloc[0]["id"] == "f1"
-        assert "content" not in dataset.output.columns
-        assert dataset.operation.success is True
-        assert dataset.operation.row_count == 1
-
-    def test_read_downloads_file_content_when_enabled(self) -> None:
-        """It fetches file content for every discovered file when download_file=True."""
-        linked_service = create_mock_http_linked_service()
-        linked_service.connection.request.side_effect = [
-            MockHTTPResponse(json_data={"data": [{"id": "f1"}, {"id": "f2"}]}),
-            MockHTTPResponse(content=b"hello"),
-            MockHTTPResponse(content=b"world"),
-        ]
-        dataset = create_mock_file_dataset(linked_service=linked_service, download_file=True)
-
-        dataset.read()
-
-        assert list(dataset.output["id"]) == ["f1", "f2"]
-        assert list(dataset.output["content"]) == [b"hello", b"world"]
+        assert exc_info.value.status_code == 400
 
     def test_read_deserializes_downloaded_content_when_deserializer_is_set(self) -> None:
         """It downloads file content and deserializes it into output DataFrame."""
@@ -98,32 +76,24 @@ class TestGraspFileDatasetRead:
         assert deserializer.call_count == 2
         assert linked_service.connection.request.call_count == 3
 
-    def test_read_raises_when_deserializer_set_and_download_is_disabled(self) -> None:
-        """It enforces download_file=True when a deserializer is configured."""
-        linked_service = create_mock_http_linked_service()
-        dataset = create_mock_file_dataset(
-            linked_service=linked_service,
-            download_file=False,
-            deserializer=MagicMock(),
-        )
-
-        with pytest.raises(ReadError, match=r"download_file must be true"):
-            dataset.read()
-
-        linked_service.connection.request.assert_not_called()
-
-    def test_read_uses_empty_content_when_file_download_returns_404(self) -> None:
-        """It sets empty content for files that return a 404 during content download."""
+    def test_read_ignores_download_file_flag_when_deserializer_is_set(self) -> None:
+        """It always downloads/deserializes in read() even when download_file=False."""
         linked_service = create_mock_http_linked_service()
         linked_service.connection.request.side_effect = [
             MockHTTPResponse(json_data={"data": [{"id": "f1"}]}),
-            ResourceException(message="missing", status_code=404),
+            MockHTTPResponse(content=b"one"),
         ]
-        dataset = create_mock_file_dataset(linked_service=linked_service, download_file=True)
+        deserializer = MagicMock(return_value=pd.DataFrame([{"value": 1}]))
+        dataset = create_mock_file_dataset(
+            linked_service=linked_service,
+            download_file=False,
+            deserializer=deserializer,
+        )
 
         dataset.read()
 
-        assert dataset.output.iloc[0]["content"] == b""
+        assert list(dataset.output["value"]) == [1]
+        assert linked_service.connection.request.call_count == 2
 
     def test_read_skips_deserializer_when_download_returns_404(self) -> None:
         """It keeps output empty and does not call deserializer when downloaded content is missing."""
@@ -148,8 +118,12 @@ class TestGraspFileDatasetRead:
     def test_read_passes_optional_query_params(self) -> None:
         """It forwards optional read filters as query params on list request."""
         linked_service = create_mock_http_linked_service()
-        linked_service.connection.request.return_value = MockHTTPResponse(json_data={"data": []})
-        dataset = create_mock_file_dataset(linked_service=linked_service, download_file=False)
+        linked_service.connection.request.side_effect = [MockHTTPResponse(json_data={"data": []})]
+        dataset = create_mock_file_dataset(
+            linked_service=linked_service,
+            download_file=False,
+            deserializer=MagicMock(),
+        )
 
         dataset.settings.read.limit = 10
         dataset.settings.read.offset = 5
@@ -353,16 +327,81 @@ class TestGraspFileDatasetInternals:
 class TestGraspFileDatasetList:
     """Tests for GraspFileDataset list operation."""
 
-    def test_list_raises_not_supported_error(self) -> None:
-        """It raises NotSupportedError for list operation."""
-        dataset = create_mock_file_dataset()
-        with pytest.raises(NotSupportedError) as exc_info:
-            dataset.list()
-        assert "Method 'list' is not supported by this provider." in str(exc_info.value)
-        assert exc_info.value.status_code == 501
-        assert exc_info.value.details == {
-            "method": "list",
-            "provider": ResourceType.DATASET_FILE.value,
+    def test_list_returns_files_without_content_when_download_disabled(self) -> None:
+        """It returns file metadata only when download_file=False."""
+        linked_service = create_mock_http_linked_service()
+        linked_service.connection.request.return_value = MockHTTPResponse(
+            json_data={"data": [{"id": "f1", "name": "file-1"}]},
+        )
+        dataset = create_mock_file_dataset(linked_service=linked_service, download_file=False)
+
+        dataset.list()
+
+        assert len(dataset.output) == 1
+        assert dataset.output.iloc[0]["id"] == "f1"
+        assert "content" not in dataset.output.columns
+        assert dataset.operation.success is True
+        assert dataset.operation.row_count == 1
+
+    def test_list_downloads_file_content_when_enabled(self) -> None:
+        """It fetches file content for every discovered file when download_file=True."""
+        linked_service = create_mock_http_linked_service()
+        linked_service.connection.request.side_effect = [
+            MockHTTPResponse(json_data={"data": [{"id": "f1"}, {"id": "f2"}]}),
+            MockHTTPResponse(content=b"hello"),
+            MockHTTPResponse(content=b"world"),
+        ]
+        dataset = create_mock_file_dataset(linked_service=linked_service, download_file=True)
+
+        dataset.list()
+
+        assert list(dataset.output["id"]) == ["f1", "f2"]
+        assert list(dataset.output["content"]) == [b"hello", b"world"]
+
+    def test_list_uses_empty_content_when_file_download_returns_404(self) -> None:
+        """It sets empty content for files that return a 404 during content download."""
+        linked_service = create_mock_http_linked_service()
+        linked_service.connection.request.side_effect = [
+            MockHTTPResponse(json_data={"data": [{"id": "f1"}]}),
+            ResourceException(message="missing", status_code=404),
+        ]
+        dataset = create_mock_file_dataset(linked_service=linked_service, download_file=True)
+
+        dataset.list()
+
+        assert dataset.output.iloc[0]["content"] == b""
+
+    def test_list_passes_optional_query_params(self) -> None:
+        """It forwards optional read filters as query params on list request."""
+        linked_service = create_mock_http_linked_service()
+        linked_service.connection.request.return_value = MockHTTPResponse(json_data={"data": []})
+        dataset = create_mock_file_dataset(linked_service=linked_service, download_file=False)
+
+        dataset.settings.read.limit = 10
+        dataset.settings.read.offset = 5
+        dataset.settings.read.order_by = "-modified_at"
+        dataset.settings.read.id = "file-123"
+        dataset.settings.read.file_path = "folder/a.txt"
+        dataset.settings.read.created_at_gte = "2024-01-01T00:00:00Z"
+        dataset.settings.read.modified_at_lte = "2024-12-31T23:59:59Z"
+        dataset.settings.read.status = "active"
+        dataset.settings.read.tags = {"type": "png"}
+        dataset.settings.read.meta = {"category": "data"}
+
+        dataset.list()
+
+        request_kwargs = linked_service.connection.request.call_args.kwargs
+        assert request_kwargs["params"] == {
+            "limit": 10,
+            "offset": 5,
+            "order_by": "-modified_at",
+            "id": "file-123",
+            "file_path": "folder/a.txt",
+            "created_at_gte": "2024-01-01T00:00:00Z",
+            "modified_at_lte": "2024-12-31T23:59:59Z",
+            "status": "active",
+            "tag.type": "png",
+            "meta.category": "data",
         }
 
 

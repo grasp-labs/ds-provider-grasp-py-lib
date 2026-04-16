@@ -55,16 +55,9 @@ class CreateSettings:
 @dataclass(kw_only=True)
 class ReadSettings:
     """
-    Settings for read operations.
-
-    Read contract:
-    - If a deserializer is configured on the dataset, `download_file` must be True
-      so content bytes can be fetched and deserialized.
-    - Without a deserializer, the dataset can return metadata only (`download_file=False`).
+    Settings for read operation.
     """
 
-    download_file: bool = True
-    """Download file bytes during read; required when deserializer is configured."""
     limit: int = 500
     offset: int = 0
     order_by: str | None = None
@@ -80,12 +73,21 @@ class ReadSettings:
 
 
 @dataclass(kw_only=True)
+class ListSettings:
+    """Settings for list operation"""
+
+    download_file: bool = True
+    """When True, list() includes raw binary content in output rows."""
+
+
+@dataclass(kw_only=True)
 class GraspFileDatasetSettings(DatasetSettings):
     """Settings for Grasp file dataset create/read behavior and API base URL."""
 
     url: str | None = field(default="https://grasp-daas.com/api/file-dev/v2/file/")
     create: CreateSettings = field(default_factory=CreateSettings)
     read: ReadSettings = field(default_factory=ReadSettings)
+    list: ListSettings = field(default_factory=ListSettings)
 
 
 GraspFileDatasetSettingsType = TypeVar(
@@ -174,9 +176,9 @@ class GraspFileDataset(
         base_url = self._base_url()
         logger.debug(f"Reading files from {base_url}")
 
-        if self.deserializer is not None and not self.settings.read.download_file:
+        if self.deserializer is None:
             raise ReadError(
-                message="settings.read.download_file must be true when deserializer is set",
+                message="Deserializer must be set for read(). Use list() for raw/binary output.",
                 status_code=400,
                 details={
                     "type": self.type.value,
@@ -193,12 +195,9 @@ class GraspFileDataset(
 
         files = response.json()["data"]
 
-        if self.settings.read.download_file:
-            self._download_files(base_url, files)
-        else:
-            self.output = pd.DataFrame(files)
+        self._download_files(base_url, files, deserialize=True)
 
-    def _download_files(self, base_url: str, files: list[dict[str, Any]]) -> None:
+    def _download_files(self, base_url: str, files: list[dict[str, Any]], deserialize: bool) -> None:
         for file in files:
             file_id = file["id"]
             url = f"{base_url}{file_id}/content/"
@@ -214,7 +213,7 @@ class GraspFileDataset(
                     file.update({"content": b""})
                     continue
 
-        if self.deserializer is not None:
+        if deserialize:
             deserialized_frames: list[pd.DataFrame] = []
             for file in files:
                 content = file.get("content", b"")
@@ -253,12 +252,23 @@ class GraspFileDataset(
             details={"method": "purge", "provider": self.type.value},
         )
 
-    def list(self) -> NoReturn:
-        logger.error("List operation is not supported by Grasp file dataset.")
-        raise NotSupportedError(
-            message="Method 'list' is not supported by this provider.",
-            details={"method": "list", "provider": self.type.value},
+    def list(self) -> None:
+        """List files with metadata only or metadata+binary content based on read settings."""
+        base_url = self._base_url()
+        logger.debug(f"Listing files from {base_url}")
+
+        response = self.linked_service.connection.request(
+            method="GET",
+            url=base_url,
+            headers=self.linked_service.settings.headers,
+            params=self._read_params(),
         )
+
+        files = response.json()["data"]
+        if self.settings.list.download_file:
+            self._download_files(base_url, files, deserialize=False)
+        else:
+            self.output = pd.DataFrame(files)
 
     def rename(self) -> NoReturn:
         logger.error("Rename operation is not supported by Grasp file dataset.")
