@@ -253,7 +253,7 @@ class GraspFileDataset(
         )
 
     def list(self) -> None:
-        """List files with metadata only or metadata+binary content based on read settings."""
+        """List files with metadata only or metadata+binary content based on list settings."""
         base_url = self._base_url()
         logger.debug(f"Listing files from {base_url}")
 
