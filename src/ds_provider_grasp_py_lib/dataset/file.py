@@ -21,7 +21,6 @@ from ds_resource_plugin_py_lib.common.resource.dataset import (
 )
 from ds_resource_plugin_py_lib.common.resource.dataset.errors import CreateError, ReadError
 from ds_resource_plugin_py_lib.common.resource.errors import ResourceException, NotSupportedError
-from ds_resource_plugin_py_lib.common.resource.linked_service.errors import AuthorizationError
 from ds_resource_plugin_py_lib.common.serde.deserialize import PandasDeserializer
 from ds_resource_plugin_py_lib.common.serde.serialize import PandasSerializer
 
@@ -193,8 +192,8 @@ class GraspFileDataset(
         )
 
         files = response.json()["data"]
-        should_download = self.settings.read.download_file
-        if should_download:
+
+        if self.settings.read.download_file:
             self._download_files(base_url, files)
         else:
             self.output = pd.DataFrame(files)
