@@ -1,4 +1,12 @@
-"""Tests for the HTTP-based Grasp file dataset implementation."""
+"""
+**File:** ``test_file.py``
+**Region:** ``tests/dataset/test_file``
+
+Tests for the HTTP-based Grasp file dataset
+
+Covers:
+- create(), read(), list() methods
+"""
 
 from __future__ import annotations
 
