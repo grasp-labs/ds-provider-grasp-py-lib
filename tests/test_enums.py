@@ -24,6 +24,9 @@ def test_resource_type_dataset_value() -> None:
     assert isinstance(ResourceType.DATASET_INGRESS, str)
     assert isinstance(ResourceType.DATASET_CART, str)
     assert isinstance(ResourceType.DATASET_FILE, str)
+    # Linked service value
+    assert ResourceType.LINKED_SERVICE_IDENTITY == "ds.linked-service.grasp-identity"
+    assert isinstance(ResourceType.LINKED_SERVICE_IDENTITY, str)
 
 
 def test_resource_type_enum_membership() -> None:
@@ -33,6 +36,7 @@ def test_resource_type_enum_membership() -> None:
     assert ResourceType.DATASET_CART in ResourceType
     assert ResourceType.DATASET_INGRESS in ResourceType
     assert ResourceType.DATASET_FILE in ResourceType
+    assert ResourceType.LINKED_SERVICE_IDENTITY in ResourceType
 
 
 def test_resource_type_enum_comparison() -> None:
@@ -42,3 +46,7 @@ def test_resource_type_enum_comparison() -> None:
     assert ResourceType.DATASET_INGRESS != ResourceType.DATASET_CART
     assert ResourceType.DATASET_INGRESS != ResourceType.DATASET_FILE
     assert ResourceType.DATASET_CART != ResourceType.DATASET_FILE
+    # Linked service comparison
+    assert ResourceType.LINKED_SERVICE_IDENTITY != ResourceType.DATASET_CART
+    assert ResourceType.LINKED_SERVICE_IDENTITY != ResourceType.DATASET_INGRESS
+    assert ResourceType.LINKED_SERVICE_IDENTITY != ResourceType.DATASET_FILE
