@@ -331,7 +331,7 @@ class GraspFileDataset(
 
     def _resolve_create_content(self) -> Any:
         """Resolve upload content from serializer(dataset.input) or create settings content."""
-        has_input = self.input is not None and not (isinstance(self.input, pd.DataFrame) and self.input.empty)
+        has_input = isinstance(self.input, pd.DataFrame) and not self.input.empty
         has_settings_content = self.settings.create.content is not None
 
         if has_input and has_settings_content:
