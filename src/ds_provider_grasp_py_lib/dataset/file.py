@@ -20,7 +20,7 @@ from ds_resource_plugin_py_lib.common.resource.dataset import (
     TabularDataset,
 )
 from ds_resource_plugin_py_lib.common.resource.dataset.errors import CreateError, ReadError
-from ds_resource_plugin_py_lib.common.resource.errors import ResourceException, NotSupportedError
+from ds_resource_plugin_py_lib.common.resource.errors import NotSupportedError, ResourceException
 from ds_resource_plugin_py_lib.common.serde.deserialize import PandasDeserializer
 from ds_resource_plugin_py_lib.common.serde.serialize import PandasSerializer
 

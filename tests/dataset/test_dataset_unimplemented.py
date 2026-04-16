@@ -2,10 +2,10 @@
 **File:** ``test_dataset_unimplemented.py``
 **Region:** ``tests/dataset/test_dataset_unimplemented``
 
-Grasp Dataset unauthorized methods tests.
+Grasp Dataset unauthorized/not supported methods tests.
 
 Covers:
-- create(), delete(), update(), and rename() methods raising AuthorizationError.
+- create(), delete(), update(), and rename() methods raising AuthorizationError/NotSupportedError.
 """
 
 from __future__ import annotations
@@ -17,7 +17,6 @@ from ds_resource_plugin_py_lib.common.resource.linked_service.errors import (
 )
 
 from ds_provider_grasp_py_lib.enums import ResourceType
-
 from tests.mocks import create_mock_cart_dataset, create_mock_file_dataset, create_mock_ingress_dataset
 
 
