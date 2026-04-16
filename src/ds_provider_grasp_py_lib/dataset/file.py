@@ -195,11 +195,11 @@ class GraspFileDataset(
         files = response.json()["data"]
         should_download = self.settings.read.download_file
         if should_download:
-            self.download_files(base_url, files)
+            self._download_files(base_url, files)
         else:
             self.output = pd.DataFrame(files)
 
-    def download_files(self, base_url: str, files: list[dict[str, Any]]) -> None:
+    def _download_files(self, base_url: str, files: list[dict[str, Any]]) -> None:
         for file in files:
             file_id = file["id"]
             url = f"{base_url}{file_id}/content/"
