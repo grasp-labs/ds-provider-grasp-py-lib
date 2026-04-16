@@ -5,7 +5,7 @@
 Grasp File Dataset
 
 This module implements a generic GRASP file dataset.
-The dataset can read and create files via grasp API.
+The dataset can read, list and create files via grasp API.
 """
 
 import io
@@ -82,7 +82,7 @@ class ListSettings:
 
 @dataclass(kw_only=True)
 class GraspFileDatasetSettings(DatasetSettings):
-    """Settings for Grasp file dataset create/read behavior and API base URL."""
+    """Settings for Grasp file dataset create/list/read behavior and API base URL."""
 
     url: str | None = field(default="https://grasp-daas.com/api/file-dev/v2/file/")
     create: CreateSettings = field(default_factory=CreateSettings)
@@ -116,47 +116,6 @@ class GraspFileDataset(
     @property
     def type(self) -> ResourceType:
         return ResourceType.DATASET_FILE
-
-    def _details(self, **extra: Any) -> dict[str, Any]:
-        return {
-            "type": self.type.value,
-            "settings": self.settings.serialize(),
-            **extra,
-        }
-
-    def _base_url(self) -> str:
-        if not self.settings.url:
-            raise ValueError("File dataset settings.url is required")
-        return self.settings.url.rstrip("/") + "/"
-
-    def _read_params(self) -> dict[str, Any]:
-        """Build query parameters for file listing from read settings."""
-        read = self.settings.read
-        params: dict[str, Any] = {}
-
-        for key in (
-            "limit",
-            "offset",
-            "order_by",
-            "id",
-            "file_path",
-            "created_at_gte",
-            "modified_at_gte",
-            "created_at_lte",
-            "modified_at_lte",
-            "status",
-        ):
-            value = getattr(read, key)
-            if value is not None:
-                params[key] = value
-
-        for key, value in (read.tags or {}).items():
-            params[f"tag.{key}"] = value
-
-        for key, value in (read.meta or {}).items():
-            params[f"meta.{key}"] = value
-
-        return params
 
     def create(self) -> None:
         """
@@ -225,6 +184,24 @@ class GraspFileDataset(
         else:
             self.output = pd.DataFrame(files)
 
+    def list(self) -> None:
+        """List files with metadata only or metadata+binary content based on list settings."""
+        base_url = self._base_url()
+        logger.debug(f"Listing files from {base_url}")
+
+        response = self.linked_service.connection.request(
+            method="GET",
+            url=base_url,
+            headers=self.linked_service.settings.headers,
+            params=self._read_params(),
+        )
+
+        files = response.json()["data"]
+        if self.settings.list.download_file:
+            self._download_files(base_url, files, deserialize=False)
+        else:
+            self.output = pd.DataFrame(files)
+
     def update(self) -> NoReturn:
         logger.error("Update operation is not supported by Grasp file dataset.")
         raise NotSupportedError(
@@ -253,24 +230,6 @@ class GraspFileDataset(
             details={"method": "purge", "provider": self.type.value},
         )
 
-    def list(self) -> None:
-        """List files with metadata only or metadata+binary content based on list settings."""
-        base_url = self._base_url()
-        logger.debug(f"Listing files from {base_url}")
-
-        response = self.linked_service.connection.request(
-            method="GET",
-            url=base_url,
-            headers=self.linked_service.settings.headers,
-            params=self._read_params(),
-        )
-
-        files = response.json()["data"]
-        if self.settings.list.download_file:
-            self._download_files(base_url, files, deserialize=False)
-        else:
-            self.output = pd.DataFrame(files)
-
     def rename(self) -> NoReturn:
         logger.error("Rename operation is not supported by Grasp file dataset.")
         raise NotSupportedError(
@@ -281,6 +240,47 @@ class GraspFileDataset(
     def close(self) -> None:
         """Close the dataset."""
         self.linked_service.close()
+
+    def _details(self, **extra: Any) -> dict[str, Any]:
+        return {
+            "type": self.type.value,
+            "settings": self.settings.serialize(),
+            **extra,
+        }
+
+    def _base_url(self) -> str:
+        if not self.settings.url:
+            raise ValueError("File dataset settings.url is required")
+        return self.settings.url.rstrip("/") + "/"
+
+    def _read_params(self) -> dict[str, Any]:
+        """Build query parameters for file listing from read settings."""
+        read = self.settings.read
+        params: dict[str, Any] = {}
+
+        for key in (
+            "limit",
+            "offset",
+            "order_by",
+            "id",
+            "file_path",
+            "created_at_gte",
+            "modified_at_gte",
+            "created_at_lte",
+            "modified_at_lte",
+            "status",
+        ):
+            value = getattr(read, key)
+            if value is not None:
+                params[key] = value
+
+        for key, value in (read.tags or {}).items():
+            params[f"tag.{key}"] = value
+
+        for key, value in (read.meta or {}).items():
+            params[f"meta.{key}"] = value
+
+        return params
 
     def _create_metadata(self) -> dict[str, Any]:
         """
@@ -366,7 +366,6 @@ class GraspFileDataset(
             value = serialized.getvalue()
             return value.encode() if isinstance(value, str) else value
         return serialized
-
 
     def _deserialize_content(self, content: bytes) -> pd.DataFrame:
         """Deserialize raw file bytes into a DataFrame using configured deserializer."""
