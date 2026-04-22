@@ -67,7 +67,7 @@ class GraspIdentityLinkedServiceSettings(HttpLinkedServiceSettings):
     schema: str = field(default="https")
     """The schema to use for the connection. Default is 'https'."""
 
-    oauth: IDPOAuth2AuthSettings | None = None
+    oauth2: IDPOAuth2AuthSettings | None = None
     """OAuth2 authentication settings (if auth_type is OAUTH2)."""
 
     bearer: IDPBearerAuthSettings | None = None
