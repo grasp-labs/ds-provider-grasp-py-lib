@@ -26,24 +26,24 @@ def test_settings_defaults() -> None:
     assert settings.host == "auth.grasp-daas.com"
     assert settings.auth_type.name == "BASIC"
     assert settings.schema == "https"
-    assert settings.oauth is None
+    assert settings.oauth2 is None
     assert settings.bearer is None
 
 
 def test_settings_custom_values() -> None:
     """Test that GraspIdentityLinkedServiceSettings can be instantiated with custom values."""
-    oauth_settings = IDPOAuth2AuthSettings(client_id="id", client_secret="secret")
+    oauth2_settings = IDPOAuth2AuthSettings(client_id="id", client_secret="secret")
     bearer_settings = IDPBearerAuthSettings(username="user", password="pass")
     settings = GraspIdentityLinkedServiceSettings(
         host="custom-host",
         auth_type=enums.AuthType.OAUTH2,
         schema="http",
-        oauth=oauth_settings,
+        oauth2=oauth2_settings,
         bearer=bearer_settings,
     )
     assert settings.host == "custom-host"
     assert settings.schema == "http"
-    assert settings.oauth == oauth_settings
+    assert settings.oauth2 == oauth2_settings
     assert settings.bearer == bearer_settings
 
 
