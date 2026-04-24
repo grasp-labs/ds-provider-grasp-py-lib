@@ -1,6 +1,6 @@
 """
-**File:** ``04_dataset_file_create.py``
-**Region:** ``examples/04_dataset_file_create``
+**File:** ``04_dataset_file_create_from_input.py``
+**Region:** ``examples/04_dataset_file_create_from_input``
 
 Example 04: Create a file with GraspFileDataset via the Grasp File API.
 
@@ -13,12 +13,14 @@ from __future__ import annotations
 
 import logging
 import uuid
-from io import BytesIO
 
 import pandas as pd
 from ds_common_logger_py_lib import Logger
 from ds_protocol_http_py_lib import HttpLinkedService, HttpLinkedServiceSettings
 from ds_protocol_http_py_lib.enums import AuthType
+from ds_resource_plugin_py_lib.common.resource.dataset import DatasetStorageFormatType
+from ds_resource_plugin_py_lib.common.serde.serialize import PandasSerializer
+
 from ds_provider_grasp_py_lib.dataset.file import (
     CreateSettings,
     GraspFileDataset,
@@ -36,10 +38,13 @@ logger = Logger.get_logger(__name__)
 
 
 def main() -> None:
-    """Main function demonstrating Grasp File dataset create operation."""
-    # Example A: direct binary upload via settings.create.content.
-    # create.content has precedence if both create.content and dataset.input are set.
+    # Example B: create from dataset.input + serializer.
+    # Keep settings.create.content unset in this flow so payload comes from input.
     dataset = GraspFileDataset(
+        # Serializer is required when dataset.input is used as payload source.
+        # `orient=records` gives a JSON array like [{"test":"9"}].
+        serializer=PandasSerializer(format=DatasetStorageFormatType.JSON, kwargs={"orient": "records"}),
+        # serializer must be set when running create from input
         id=uuid.uuid4(),
         name="file-dataset",
         version="1.0.0",
@@ -64,15 +69,16 @@ def main() -> None:
                     ],
                     "viewers": []
                 },
-                description="test example4",
-                file_path="test4",
+                description="test example9",
+                file_path="test9",
                 version="v1.0.0",
-                # `content` is the payload source in this example.
-                # If dataset.input is also set, create() still uses this content.
-                content=BytesIO(pd.DataFrame([{"test": "4"}]).to_json(orient="records").encode())
+                # Leave `content` unset to use serialized dataset.input payload.
+                # If `content` is set, it overrides dataset.input.
             )
         ),
     )
+    # Payload source for this example: dataset.input (serialized above).
+    dataset.input = pd.DataFrame([{"test": "9"}])
     dataset.linked_service.connect()
     dataset.create()
     logger.info(f"Successfully performed create operation")

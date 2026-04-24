@@ -5,7 +5,7 @@
 Grasp File Dataset
 
 This module implements a generic GRASP file dataset.
-The dataset can read and create files via grasp API.
+The dataset can read, list and create files via grasp API.
 """
 
 import io
@@ -19,8 +19,8 @@ from ds_resource_plugin_py_lib.common.resource.dataset import (
     DatasetSettings,
     TabularDataset,
 )
-from ds_resource_plugin_py_lib.common.resource.errors import ResourceException
-from ds_resource_plugin_py_lib.common.resource.linked_service.errors import AuthorizationError
+from ds_resource_plugin_py_lib.common.resource.dataset.errors import CreateError, ReadError
+from ds_resource_plugin_py_lib.common.resource.errors import NotSupportedError, ResourceException
 from ds_resource_plugin_py_lib.common.serde.deserialize import PandasDeserializer
 from ds_resource_plugin_py_lib.common.serde.serialize import PandasSerializer
 
@@ -33,6 +33,12 @@ logger = Logger.get_logger(__name__, package=True)
 class CreateSettings:
     """
     Settings for create operations.
+
+    Content source contract:
+    - `create.content` has precedence when provided.
+    - `create.content` must be provided as `io.BytesIO`.
+    - Otherwise create uses `dataset.input` serialized by `dataset.serializer`.
+    - If neither source is available, create raises `CreateError`.
     """
 
     acl: dict[str, Any] | None = field(default_factory=dict)
@@ -44,16 +50,15 @@ class CreateSettings:
     version: str | None = field(default="1.0.0")
 
     content: io.BytesIO | None = field(default=None)
-    """File content to be uploaded."""
+    """Raw upload payload stream. When set, it overrides `dataset.input` as create source."""
 
 
 @dataclass(kw_only=True)
 class ReadSettings:
     """
-    Settings for read operations.
+    Settings for read operation.
     """
 
-    download_file: bool = True
     limit: int = 500
     offset: int = 0
     order_by: str | None = None
@@ -69,12 +74,21 @@ class ReadSettings:
 
 
 @dataclass(kw_only=True)
+class ListSettings:
+    """Settings for list operation"""
+
+    download_file: bool = True
+    """When True, list() includes raw binary content in output rows."""
+
+
+@dataclass(kw_only=True)
 class GraspFileDatasetSettings(DatasetSettings):
-    """Settings for Grasp file dataset operations."""
+    """Settings for Grasp file dataset create/list/read behavior and API base URL."""
 
     url: str | None = field(default="https://grasp-daas.com/api/file-dev/v2/file/")
     create: CreateSettings = field(default_factory=CreateSettings)
     read: ReadSettings = field(default_factory=ReadSettings)
+    list: ListSettings = field(default_factory=ListSettings)
 
 
 GraspFileDatasetSettingsType = TypeVar(
@@ -103,6 +117,130 @@ class GraspFileDataset(
     @property
     def type(self) -> ResourceType:
         return ResourceType.DATASET_FILE
+
+    def create(self) -> None:
+        """
+        Write the content of the dataset to the file.
+        :return: None
+        """
+        content = self._resolve_create_content()
+        metadata = self._create_metadata()
+        data = self._upload_file_content(metadata, content)
+        self.output = pd.DataFrame([data]) if isinstance(data, dict) else pd.DataFrame(data)
+
+    def read(self) -> None:
+        """
+        Read the file from the file_uri.
+        :return: None
+        """
+        base_url = self._base_url()
+        logger.debug(f"Reading files from {base_url}")
+
+        if self.deserializer is None:
+            raise ReadError(
+                message="Deserializer must be set for read(). Use list() for raw/binary output.",
+                status_code=400,
+                details={
+                    "type": self.type.value,
+                    "settings": self.settings.serialize(),
+                },
+            )
+
+        response = self.linked_service.connection.request(
+            method="GET",
+            url=base_url,
+            headers=self.linked_service.settings.headers,
+            params=self._read_params(),
+        )
+
+        files = response.json()["data"]
+
+        self._download_files(base_url, files, deserialize=True)
+
+    def _download_files(self, base_url: str, files: list[dict[str, Any]], deserialize: bool) -> None:
+        for file in files:
+            file_id = file["id"]
+            url = f"{base_url}{file_id}/content/"
+            try:
+                response = self.linked_service.connection.request(
+                    method="GET",
+                    url=url,
+                    headers=self.linked_service.settings.headers,
+                )
+                file.update({"content": response.content})
+            except ResourceException as exc:
+                if exc.status_code == 404:
+                    file.update({"content": b""})
+                    continue
+                raise
+
+        if deserialize:
+            deserialized_frames: list[pd.DataFrame] = []
+            for file in files:
+                content = file.get("content", b"")
+                if not content:
+                    continue
+                deserialized_frames.append(self._deserialize_content(content))
+            self.output = pd.concat(deserialized_frames, ignore_index=True) if deserialized_frames else pd.DataFrame()
+        else:
+            self.output = pd.DataFrame(files)
+
+    def list(self) -> None:
+        """List files with metadata only or metadata+binary content based on list settings."""
+        base_url = self._base_url()
+        logger.debug(f"Listing files from {base_url}")
+
+        response = self.linked_service.connection.request(
+            method="GET",
+            url=base_url,
+            headers=self.linked_service.settings.headers,
+            params=self._read_params(),
+        )
+
+        files = response.json()["data"]
+        if self.settings.list.download_file:
+            self._download_files(base_url, files, deserialize=False)
+        else:
+            self.output = pd.DataFrame(files)
+
+    def update(self) -> NoReturn:
+        logger.error("Update operation is not supported by Grasp file dataset.")
+        raise NotSupportedError(
+            message="Method 'update' is not supported by this provider.",
+            details={"method": "update", "provider": self.type.value},
+        )
+
+    def upsert(self) -> NoReturn:
+        logger.error("Upsert operation is not supported by Grasp file dataset.")
+        raise NotSupportedError(
+            message="Method 'upsert' is not supported by this provider.",
+            details={"method": "upsert", "provider": self.type.value},
+        )
+
+    def delete(self) -> NoReturn:
+        logger.error("Delete operation is not supported by Grasp file dataset.")
+        raise NotSupportedError(
+            message="Method 'delete' is not supported by this provider.",
+            details={"method": "delete", "provider": self.type.value},
+        )
+
+    def purge(self) -> NoReturn:
+        logger.error("Purge operation is not supported by Grasp file dataset.")
+        raise NotSupportedError(
+            message="Method 'purge' is not supported by this provider.",
+            details={"method": "purge", "provider": self.type.value},
+        )
+
+    def rename(self) -> NoReturn:
+        logger.error("Rename operation is not supported by Grasp file dataset.")
+        raise NotSupportedError(
+            message="Method 'rename' is not supported by this provider.",
+            details={"method": "rename", "provider": self.type.value},
+        )
+
+    def close(self) -> None:
+        """Close the dataset."""
+        self.linked_service.close()
 
     def _details(self, **extra: Any) -> dict[str, Any]:
         return {
@@ -145,115 +283,6 @@ class GraspFileDataset(
 
         return params
 
-    def create(self) -> None:
-        """
-        Write the content of the dataset to the file.
-        :return: None
-        """
-        metadata = self._create_metadata()
-        data = self._upload_file_content(metadata)
-        self.output = pd.DataFrame(data)
-
-    def read(self) -> None:
-        """
-        Read the file from the file_uri.
-        :return: None
-        """
-        base_url = self._base_url()
-        logger.debug(f"Reading files from {base_url}")
-
-        response = self.linked_service.connection.request(
-            method="GET",
-            url=base_url,
-            headers=self.linked_service.settings.headers,
-            params=self._read_params(),
-        )
-
-        files = response.json()["data"]
-        if self.settings.read.download_file:
-            for file in files:
-                file_id = file["id"]
-                url = f"{base_url}{file_id}/content/"
-                try:
-                    response = self.linked_service.connection.request(
-                        method="GET",
-                        url=url,
-                        headers=self.linked_service.settings.headers,
-                    )
-                except ResourceException as exc:
-                    if exc.status_code == 404:
-                        file.update({"content": b""})
-                        continue
-                file.update({"content": response.content})
-
-            self.output = pd.DataFrame(files)
-        else:
-            self.output = pd.DataFrame(files)
-
-    def update(self) -> NoReturn:
-        raise AuthorizationError(
-            message="You are not authorized to update a Grasp File dataset",
-            status_code=403,
-            details={
-                "type": self.type.value,
-                "settings": self.settings.serialize(),
-            },
-        )
-
-    def upsert(self) -> NoReturn:
-        raise AuthorizationError(
-            message="You are not authorized to upsert a Grasp File dataset",
-            status_code=403,
-            details={
-                "type": self.type.value,
-                "settings": self.settings.serialize(),
-            },
-        )
-
-    def delete(self) -> NoReturn:
-        raise AuthorizationError(
-            message="You are not authorized to delete a Grasp File dataset",
-            status_code=403,
-            details={
-                "type": self.type.value,
-                "settings": self.settings.serialize(),
-            },
-        )
-
-    def purge(self) -> NoReturn:
-        raise AuthorizationError(
-            message="You are not authorized to purge a Grasp File dataset",
-            status_code=403,
-            details={
-                "type": self.type.value,
-                "settings": self.settings.serialize(),
-            },
-        )
-
-    def list(self) -> NoReturn:
-        raise AuthorizationError(
-            message="You are not authorized to list a Grasp File dataset",
-            status_code=403,
-            details={
-                "type": self.type.value,
-                "settings": self.settings.serialize(),
-            },
-        )
-
-    def rename(self) -> NoReturn:
-        raise AuthorizationError(
-            message="You are not authorized to rename a Grasp File dataset",
-            status_code=403,
-            details={
-                "type": self.type.value,
-                "settings": self.settings.serialize(),
-            },
-        )
-
-    def close(self) -> None:
-        """Close the dataset."""
-        self.linked_service.close()
-
     def _create_metadata(self) -> dict[str, Any]:
         """
         Create the metadata for the file.
@@ -280,18 +309,16 @@ class GraspFileDataset(
         logger.info(f"File metadata created: {data}")
         return data
 
-    def _upload_file_content(self, metadata: dict[str, Any]) -> dict[str, Any]:
+    def _upload_file_content(self, metadata: dict[str, Any], content: Any) -> dict[str, Any]:
         """
         Upload the file content to the file.
         :return: Dict
         """
-        headers = self.linked_service.settings.headers
-        headers.update(
-            {
-                "Content-Type": "application/octet-stream",
-                "accept": "*/*",
-            }
-        )
+        headers = {
+            **self.linked_service.settings.headers,
+            "Content-Type": "application/octet-stream",
+            "accept": "*/*",
+        }
         base_url = self._base_url()
         url = f"{base_url}{metadata['id']}/content/"
 
@@ -299,7 +326,81 @@ class GraspFileDataset(
             method="PUT",
             url=url,
             headers=headers,
-            data=self.settings.create.content,
+            data=content,
         )
         data: dict[str, Any] = response.json()
         return data
+
+    def _resolve_create_content(self) -> Any:
+        """Resolve payload from `create.content` first, then from serialized `dataset.input`."""
+        if self.settings.create.content is not None:
+            if not isinstance(self.settings.create.content, io.BytesIO):
+                raise CreateError(
+                    message="settings.create.content must be io.BytesIO",
+                    status_code=400,
+                    details={
+                        "type": self.type.value,
+                        "settings": self.settings.serialize(),
+                    },
+                )
+            # Explicit binary content is the highest-priority source.
+            return self.settings.create.content
+
+        has_input = isinstance(self.input, pd.DataFrame)
+        if not has_input:
+            raise CreateError(
+                message="No create payload provided. Set settings.create.content or dataset.input.",
+                status_code=400,
+                details={
+                    "type": self.type.value,
+                    "settings": self.settings.serialize(),
+                },
+            )
+
+        if self.serializer is None:
+            raise CreateError(
+                message="serializer must be set when dataset.input is provided",
+                status_code=400,
+                details={
+                    "type": self.type.value,
+                    "settings": self.settings.serialize(),
+                },
+            )
+
+        serialized = self.serializer(self.input)
+        if isinstance(serialized, str):
+            return serialized.encode()
+        if isinstance(serialized, bytearray):
+            return bytes(serialized)
+        if hasattr(serialized, "getvalue"):
+            value = serialized.getvalue()
+            return value.encode() if isinstance(value, str) else value
+        return serialized
+
+    def _deserialize_content(self, content: bytes) -> pd.DataFrame:
+        """Deserialize raw file bytes into a DataFrame using configured deserializer."""
+        deserializer = self.deserializer
+        if deserializer is None:
+            raise ReadError(
+                message="Deserializer is not set.",
+                status_code=400,
+                details={
+                    "type": self.type.value,
+                    "settings": self.settings.serialize(),
+                },
+            )
+
+        try:
+            return deserializer(content)
+        except Exception:
+            try:
+                return deserializer(io.BytesIO(content))
+            except Exception as exc:
+                raise ReadError(
+                    message=f"Failed to deserialize content: {exc!s}",
+                    status_code=500,
+                    details={
+                        "type": self.type.value,
+                        "settings": self.settings.serialize(),
+                    },
+                ) from exc

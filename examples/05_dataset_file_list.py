@@ -1,12 +1,12 @@
 """
-**File:** ``03_dataset_file_read.py``
-**Region:** ``examples/03_dataset_file_read``
+**File:** ``05_dataset_file_list.py``
+**Region:** ``examples/05_dataset_file_list``
 
-Example 03: Read data from a Grasp File dataset using GraspFileDataset.
+Example 05: List data from a Grasp File dataset using GraspFileDataset.
 
 This example demonstrates how to:
-- Create a Grasp File dataset with a Pandas deserializer
-- Read and deserialize downloaded file content into tabular output
+- Create a Grasp File dataset
+- List file metadata and optional binary content from the Grasp File API
 """
 
 from __future__ import annotations
@@ -17,12 +17,11 @@ import uuid
 from ds_common_logger_py_lib import Logger
 from ds_protocol_http_py_lib import HttpLinkedService, HttpLinkedServiceSettings
 from ds_protocol_http_py_lib.enums import AuthType
-from ds_resource_plugin_py_lib.common.resource.dataset.storage_format import DatasetStorageFormatType
-from ds_resource_plugin_py_lib.common.serde.deserialize import PandasDeserializer
 
 from ds_provider_grasp_py_lib.dataset.file import (
     GraspFileDataset,
     GraspFileDatasetSettings,
+    ListSettings,
     ReadSettings,
 )
 
@@ -37,11 +36,10 @@ logger = Logger.get_logger(__name__)
 
 
 def main() -> None:
-    """Main function demonstrating Grasp File dataset read operation."""
+    """Main function demonstrating Grasp File dataset list operation."""
     dataset = GraspFileDataset(
-        # With a deserializer, read() always downloads file bytes.
-        # deserializer must be provided for read().
-        deserializer=PandasDeserializer(format=DatasetStorageFormatType.JSON),
+        # list() is the raw mode: no deserializer is required.
+        # Output contains file metadata and optional binary content bytes.
         id=uuid.uuid4(),
         name="file-dataset",
         version="1.0.0",
@@ -59,15 +57,17 @@ def main() -> None:
         ),
         settings=GraspFileDatasetSettings(
             url="https://dev.aic-project.com/api/file/file/",
-            read=ReadSettings(
-                limit=3,
+            read=ReadSettings(limit=2),
+            list=ListSettings(
+                # Set True to include `content` bytes in list() output.
+                download_file=False,
             ),
         ),
     )
 
     dataset.linked_service.connect()
-    dataset.read()
-    logger.info(f"Successfully performed read operation")
+    dataset.list()
+    logger.info("Successfully performed list operation")
     print(dataset.output)
 
 
