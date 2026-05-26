@@ -21,3 +21,11 @@ dataset:
     version: 1.0.0
     description: Grasp file dataset
     class_name: ds_provider_grasp_py_lib.dataset.file.GraspFileDataset
+
+
+linked-service:
+  - name: Grasp Identity
+    type: ds.linked-service.grasp-identity
+    version: 1.0.0
+    description: Grasp identity linked service
+    class_name: ds_provider_grasp_py_lib.linked_service.identity.GraspIdentityLinkedService
