@@ -71,7 +71,7 @@ class GraspIAMRoleLinkedService(
     _connection: boto3.Session | None = field(default=None, init=False, repr=False, metadata={"serialize": False})
 
     @property
-    def type(self) -> ResourceType:  # type: ignore[override]
+    def type(self) -> ResourceType:
         return ResourceType.LINKED_SERVICE_IAM_ROLE
 
     @property
@@ -116,8 +116,10 @@ class GraspIAMRoleLinkedService(
             ) from exc
 
         self._connection = boto3.Session(
+            aws_access_key_id=credentials["aws_access_key_id"],
+            aws_secret_access_key=credentials["aws_secret_access_key"],
+            aws_session_token=credentials["aws_session_token"],
             region_name=self.settings.region,
-            **credentials,
         )
 
     def test_connection(self) -> tuple[bool, str]:
