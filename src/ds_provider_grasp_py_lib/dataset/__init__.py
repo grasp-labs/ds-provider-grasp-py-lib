@@ -37,6 +37,7 @@ Example:
 
 from .cart import GraspCartDataset, GraspCartDatasetSettings
 from .file import GraspFileDataset, GraspFileDatasetSettings
+from .gold import GraspGoldDataset, GraspGoldDatasetSettings
 from .ingress import GraspIngressDataset, GraspIngressDatasetSettings
 
 __all__ = [
@@ -44,6 +45,8 @@ __all__ = [
     "GraspCartDatasetSettings",
     "GraspFileDataset",
     "GraspFileDatasetSettings",
+    "GraspGoldDataset",
+    "GraspGoldDatasetSettings",
     "GraspIngressDataset",
     "GraspIngressDatasetSettings",
 ]

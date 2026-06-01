@@ -21,3 +21,17 @@ dataset:
     version: 1.0.0
     description: Grasp file dataset
     class_name: ds_provider_grasp_py_lib.dataset.file.GraspFileDataset
+
+  - name: Grasp Gold
+    type: ds.resource.dataset.grasp-gold
+    version: 1.0.0
+    description: Grasp gold dataset
+    class_name: ds_provider_grasp_py_lib.dataset.gold.GraspGoldDataset
+
+
+linked_service:
+  - name: Grasp IAM Role
+    type: ds.linked-service.grasp-iam-role
+    version: 1.0.0
+    description: Grasp linked service that assumes a client-dedicated IAM role
+    class_name: ds_provider_grasp_py_lib.linked_service.iam_role.GraspIAMRoleLinkedService

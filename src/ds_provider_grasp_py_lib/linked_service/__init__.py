@@ -20,9 +20,12 @@ Example:
     >>> linked_service.connect()
 """
 
+from .iam_role import GraspIAMRoleLinkedService, GraspIAMRoleLinkedServiceSettings
 from .identity import GraspIdentityLinkedService, GraspIdentityLinkedServiceSettings
 
 __all__ = [
+    "GraspIAMRoleLinkedService",
+    "GraspIAMRoleLinkedServiceSettings",
     "GraspIdentityLinkedService",
     "GraspIdentityLinkedServiceSettings",
 ]

@@ -26,6 +26,10 @@ from ds_provider_grasp_py_lib.dataset.file import (
     GraspFileDatasetSettings,
     ReadSettings,
 )
+from ds_provider_grasp_py_lib.dataset.gold import (
+    GraspGoldDataset,
+    GraspGoldDatasetSettings,
+)
 from ds_provider_grasp_py_lib.dataset.ingress import (
     GraspIngressDataset,
     GraspIngressDatasetSettings,
@@ -267,6 +271,61 @@ def create_mock_file_dataset(
         dataset_kwargs["serializer"] = serializer
 
     dataset = GraspFileDataset(**dataset_kwargs)
+    return dataset
+
+
+def create_mock_gold_dataset(
+    dataset_id: str = "test-dataset",
+    tenant_id: str | None = None,
+    include_history: bool = False,
+    partition_cols: list[str] | None = None,
+    mode: str | None = None,
+    compression: str | None = "snappy",
+    linked_service: MockAWSLinkedService | None = None,
+    deserializer: Any = _UNSET,
+    serializer: Any = _UNSET,
+) -> GraspGoldDataset[Any, Any]:
+    """
+    Create a mock GraspGoldDataset for testing.
+
+    Args:
+        dataset_id: The logical dataset identity used as the Gold storage key.
+        tenant_id: Optional tenant id; falls back to the ``TENANT_ID`` env var.
+        include_history: Whether to include SCD2 history rows on read.
+        partition_cols: Optional hive-style partition columns for writes.
+        mode: Optional awswrangler write mode.
+        compression: Parquet compression codec.
+        linked_service: Optional linked service. If None, creates a mock one.
+        deserializer: Optional deserializer.
+        serializer: Optional serializer.
+
+    Returns:
+        GraspGoldDataset: A dataset instance ready for testing.
+    """
+    if linked_service is None:
+        linked_service = create_mock_aws_linked_service()
+
+    settings = GraspGoldDatasetSettings(
+        dataset_id=dataset_id,
+        tenant_id=tenant_id,
+        include_history=include_history,
+        partition_cols=partition_cols,
+        mode=mode,
+        compression=compression,
+    )
+    dataset_kwargs: dict[str, Any] = {
+        "id": uuid.uuid4(),
+        "name": "test-gold-dataset",
+        "version": "1.0.0",
+        "linked_service": cast("Any", linked_service),
+        "settings": settings,
+    }
+
+    dataset = GraspGoldDataset(**dataset_kwargs)
+    if deserializer is not _UNSET:
+        dataset.deserializer = deserializer
+    if serializer is not _UNSET:
+        dataset.serializer = serializer
     return dataset
 
 
