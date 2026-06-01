@@ -154,7 +154,8 @@ class TestGraspGoldDatasetRead:
         test_df = create_test_dataframe(rows=3, with_valid_to=True)
         mock_deserializer = MagicMock(return_value=test_df)
         dataset = create_mock_gold_dataset(
-            include_history=False, deserializer=mock_deserializer,
+            include_history=False,
+            deserializer=mock_deserializer,
         )
         with patch.dict("os.environ", {"TENANT_ID": "tenant123"}):
             dataset.read()
@@ -167,7 +168,8 @@ class TestGraspGoldDatasetRead:
         test_df = create_test_dataframe(rows=3, with_valid_to=True)
         mock_deserializer = MagicMock(return_value=test_df)
         dataset = create_mock_gold_dataset(
-            include_history=True, deserializer=mock_deserializer,
+            include_history=True,
+            deserializer=mock_deserializer,
         )
         with patch.dict("os.environ", {"TENANT_ID": "tenant123"}):
             dataset.read()
@@ -204,10 +206,7 @@ class TestGraspGoldDatasetCreate:
         dataset.input = create_test_dataframe(rows=1, with_valid_to=False)
         with patch.dict("os.environ", {"TENANT_ID": "tenant-from-env"}):
             dataset.create()
-        assert (
-            mock_serializer.kwargs["path"]
-            == "s3://test-bucket/tenant-from-settings/gold/orders/"
-        )
+        assert mock_serializer.kwargs["path"] == "s3://test-bucket/tenant-from-settings/gold/orders/"
 
     def test_create_raises_create_error_when_serializer_not_set(self) -> None:
         """It raises CreateError when serializer is not set."""
@@ -256,7 +255,8 @@ class TestGraspGoldDatasetCreate:
 
     @patch("ds_provider_grasp_py_lib.dataset.gold.get_bucket_name")
     def test_create_forwards_partition_cols_and_enables_dataset(
-        self, mock_get_bucket: MagicMock,
+        self,
+        mock_get_bucket: MagicMock,
     ) -> None:
         """It forwards partition_cols and enables dataset mode."""
         mock_get_bucket.return_value = "test-bucket"
@@ -274,7 +274,8 @@ class TestGraspGoldDatasetCreate:
 
     @patch("ds_provider_grasp_py_lib.dataset.gold.get_bucket_name")
     def test_create_forwards_mode_and_enables_dataset(
-        self, mock_get_bucket: MagicMock,
+        self,
+        mock_get_bucket: MagicMock,
     ) -> None:
         """It forwards mode and enables dataset mode."""
         mock_get_bucket.return_value = "test-bucket"
@@ -324,4 +325,3 @@ class TestGraspGoldDatasetClose:
         dataset = create_mock_gold_dataset(linked_service=linked_service)
         dataset.close()
         assert linked_service._closed is True
-

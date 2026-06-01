@@ -223,7 +223,6 @@ class TestGraspFileDatasetUnsupported:
         assert exc_info.value.status_code == 403
 
 
-
 class TestGraspGoldDatasetUnauthorized:
     """Tests for GraspGoldDataset unauthorized operations."""
 

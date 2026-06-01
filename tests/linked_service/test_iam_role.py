@@ -101,7 +101,8 @@ def test_connect_raises_authorization_error_on_client_error(mock_boto3: MagicMoc
     """It raises AuthorizationError when sts:AssumeRole fails."""
     sts_client = MagicMock()
     sts_client.assume_role.side_effect = ClientError(
-        {"Error": {"Code": "AccessDenied", "Message": "denied"}}, "AssumeRole",
+        {"Error": {"Code": "AccessDenied", "Message": "denied"}},
+        "AssumeRole",
     )
     mock_boto3.client.return_value = sts_client
     service = _make_service()
@@ -133,7 +134,8 @@ def test_test_connection_returns_failure(mock_boto3: MagicMock) -> None:
     """It returns a failure tuple when connect() raises."""
     sts_client = MagicMock()
     sts_client.assume_role.side_effect = ClientError(
-        {"Error": {"Code": "AccessDenied", "Message": "denied"}}, "AssumeRole",
+        {"Error": {"Code": "AccessDenied", "Message": "denied"}},
+        "AssumeRole",
     )
     mock_boto3.client.return_value = sts_client
     service = _make_service()

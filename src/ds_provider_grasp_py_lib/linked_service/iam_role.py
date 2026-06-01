@@ -68,9 +68,7 @@ class GraspIAMRoleLinkedService(
     """
 
     settings: GraspIAMRoleLinkedServiceSettingsType
-    _connection: boto3.Session | None = field(
-        default=None, init=False, repr=False, metadata={"serialize": False}
-    )
+    _connection: boto3.Session | None = field(default=None, init=False, repr=False, metadata={"serialize": False})
 
     @property
     def type(self) -> ResourceType:  # type: ignore[override]

@@ -70,8 +70,7 @@ class GraspGoldDatasetSettings(DatasetSettings):
     def __post_init__(self) -> None:
         if self.mode is not None and self.mode not in _ALLOWED_WRITE_MODES:
             raise ValueError(
-                f"Invalid write mode {self.mode!r}; "
-                f"must be one of {_ALLOWED_WRITE_MODES}.",
+                f"Invalid write mode {self.mode!r}; must be one of {_ALLOWED_WRITE_MODES}.",
             )
 
 
