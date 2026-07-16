@@ -54,6 +54,8 @@ class ReadSettings:
     """
 
     download_file: bool = True
+    auto_paginate: bool = False
+    """When True, `read()` advances `offset` and concatenates pages until exhausted."""
     limit: int = 500
     offset: int = 0
     order_by: str | None = None
@@ -162,33 +164,67 @@ class GraspFileDataset(
         base_url = self._base_url()
         logger.debug(f"Reading files from {base_url}")
 
-        response = self.linked_service.connection.request(
-            method="GET",
-            url=base_url,
-            headers=self.linked_service.settings.headers,
-            params=self._read_params(),
-        )
-
-        files = response.json()["data"]
+        files = self._read_files(base_url)
         if self.settings.read.download_file:
-            for file in files:
-                file_id = file["id"]
-                url = f"{base_url}{file_id}/content/"
-                try:
-                    response = self.linked_service.connection.request(
-                        method="GET",
-                        url=url,
-                        headers=self.linked_service.settings.headers,
-                    )
-                except ResourceException as exc:
-                    if exc.status_code == 404:
-                        file.update({"content": b""})
-                        continue
-                file.update({"content": response.content})
-
+            self._download_file_content(base_url, files)
             self.output = pd.DataFrame(files)
         else:
             self.output = pd.DataFrame(files)
+
+    def _read_files(self, base_url: str) -> list[dict[str, Any]]:
+        """
+        Read one page or all pages of file metadata from the API.
+        """
+        if not self.settings.read.auto_paginate:
+            response = self.linked_service.connection.request(
+                method="GET",
+                url=base_url,
+                headers=self.linked_service.settings.headers,
+                params=self._read_params(),
+            )
+            return list(response.json()["data"])
+
+        limit = self.settings.read.limit
+        offset = self.settings.read.offset
+        if limit <= 0:
+            raise ValueError("Read limit must be greater than zero when auto_paginate is enabled")
+
+        params = self._read_params()
+        all_files: list[dict[str, Any]] = []
+        while True:
+            page_params = dict(params)
+            page_params["limit"] = limit
+            page_params["offset"] = offset
+            response = self.linked_service.connection.request(
+                method="GET",
+                url=base_url,
+                headers=self.linked_service.settings.headers,
+                params=page_params,
+            )
+            files = list(response.json()["data"])
+            all_files.extend(files)
+            if len(files) < limit:
+                break
+            offset += limit
+
+        return all_files
+
+    def _download_file_content(self, base_url: str, files: list[dict[str, Any]]) -> None:
+        for file in files:
+            file_id = file["id"]
+            url = f"{base_url}{file_id}/content/"
+            try:
+                response = self.linked_service.connection.request(
+                    method="GET",
+                    url=url,
+                    headers=self.linked_service.settings.headers,
+                )
+            except ResourceException as exc:
+                if exc.status_code == 404:
+                    file.update({"content": b""})
+                    continue
+                raise
+            file.update({"content": response.content})
 
     def update(self) -> NoReturn:
         raise AuthorizationError(

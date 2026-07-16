@@ -117,6 +117,47 @@ class TestGraspFileDatasetRead:
             "meta.category": "data",
         }
 
+    def test_read_auto_paginate_concatenates_all_pages(self) -> None:
+        """It keeps requesting pages until the returned page is shorter than the configured limit."""
+        linked_service = create_mock_http_linked_service()
+        linked_service.connection.request.side_effect = [
+            MockHTTPResponse(json_data={"data": [{"id": "f1"}, {"id": "f2"}]}),
+            MockHTTPResponse(json_data={"data": [{"id": "f3"}]}),
+        ]
+        dataset = create_mock_file_dataset(linked_service=linked_service, download_file=False, auto_paginate=True)
+        dataset.settings.read.limit = 2
+        dataset.settings.read.offset = 4
+
+        dataset.read()
+
+        assert list(dataset.output["id"]) == ["f1", "f2", "f3"]
+        assert linked_service.connection.request.call_count == 2
+        assert linked_service.connection.request.call_args_list[0].kwargs["params"] == {
+            "limit": 2,
+            "offset": 4,
+        }
+        assert linked_service.connection.request.call_args_list[1].kwargs["params"] == {
+            "limit": 2,
+            "offset": 6,
+        }
+
+    def test_read_without_auto_paginate_keeps_single_request(self) -> None:
+        """It preserves the single-request path when auto_paginate=False."""
+        linked_service = create_mock_http_linked_service()
+        linked_service.connection.request.return_value = MockHTTPResponse(json_data={"data": [{"id": "f1"}]})
+        dataset = create_mock_file_dataset(linked_service=linked_service, download_file=False, auto_paginate=False)
+        dataset.settings.read.limit = 2
+        dataset.settings.read.offset = 4
+
+        dataset.read()
+
+        assert list(dataset.output["id"]) == ["f1"]
+        assert linked_service.connection.request.call_count == 1
+        assert linked_service.connection.request.call_args.kwargs["params"] == {
+            "limit": 2,
+            "offset": 4,
+        }
+
 
 class TestGraspFileDatasetCreate:
     """Tests for GraspFileDataset create operation."""
