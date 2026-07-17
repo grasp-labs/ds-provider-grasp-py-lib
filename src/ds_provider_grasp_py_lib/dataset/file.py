@@ -19,6 +19,7 @@ from ds_resource_plugin_py_lib.common.resource.dataset import (
     DatasetSettings,
     TabularDataset,
 )
+from ds_resource_plugin_py_lib.common.resource.dataset.errors import ReadError
 from ds_resource_plugin_py_lib.common.resource.errors import ResourceException
 from ds_resource_plugin_py_lib.common.resource.linked_service.errors import AuthorizationError
 from ds_resource_plugin_py_lib.common.serde.deserialize import PandasDeserializer
@@ -178,7 +179,7 @@ class GraspFileDataset(
         """
         read = self.settings.read
         if read.auto_paginate and read.limit <= 0:
-            raise ValueError("Read limit must be greater than zero when auto_paginate is enabled")
+            raise ReadError("Read limit must be greater than zero when auto_paginate is enabled")
 
         if not self.settings.read.auto_paginate:
             response = self.linked_service.connection.request(
