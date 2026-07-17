@@ -57,6 +57,7 @@ class ReadSettings:
     auto_paginate: bool = False
     """When True, `read()` advances `offset` and concatenates pages until exhausted."""
     limit: int = 500
+    """Used only when `auto_paginate` is enabled."""
     offset: int = 0
     order_by: str | None = None
     tags: dict[str, str] | None = field(default_factory=dict)
@@ -175,6 +176,10 @@ class GraspFileDataset(
         """
         Read one page or all pages of file metadata from the API.
         """
+        read = self.settings.read
+        if read.auto_paginate and read.limit <= 0:
+            raise ValueError("Read limit must be greater than zero when auto_paginate is enabled")
+
         if not self.settings.read.auto_paginate:
             response = self.linked_service.connection.request(
                 method="GET",
@@ -184,10 +189,8 @@ class GraspFileDataset(
             )
             return list(response.json()["data"])
 
-        limit = self.settings.read.limit
-        offset = self.settings.read.offset
-        if limit <= 0:
-            raise ValueError("Read limit must be greater than zero when auto_paginate is enabled")
+        limit = read.limit
+        offset = read.offset
 
         params = self._read_params()
         all_files: list[dict[str, Any]] = []
