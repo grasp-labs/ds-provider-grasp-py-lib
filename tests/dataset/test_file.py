@@ -6,7 +6,7 @@ from io import BytesIO
 from unittest.mock import MagicMock
 
 import pytest
-from ds_resource_plugin_py_lib.common.resource.dataset.errors import CreateError
+from ds_resource_plugin_py_lib.common.resource.dataset.errors import CreateError, ReadError
 from ds_resource_plugin_py_lib.common.resource.errors import ResourceException
 from ds_resource_plugin_py_lib.common.resource.linked_service.errors import AuthorizationError, ConnectionError
 
@@ -127,6 +127,7 @@ class TestGraspFileDatasetRead:
         dataset = create_mock_file_dataset(linked_service=linked_service, download_file=False, auto_paginate=True)
         dataset.settings.read.limit = 2
         dataset.settings.read.offset = 4
+        dataset.settings.read.order_by = "id"
 
         dataset.read()
 
@@ -135,11 +136,25 @@ class TestGraspFileDatasetRead:
         assert linked_service.connection.request.call_args_list[0].kwargs["params"] == {
             "limit": 2,
             "offset": 4,
+            "order_by": "id",
         }
         assert linked_service.connection.request.call_args_list[1].kwargs["params"] == {
             "limit": 2,
             "offset": 6,
+            "order_by": "id",
         }
+
+    def test_read_auto_paginate_requires_order_by(self) -> None:
+        """It rejects auto-pagination unless a deterministic order is configured."""
+        linked_service = create_mock_http_linked_service()
+        dataset = create_mock_file_dataset(linked_service=linked_service, download_file=False, auto_paginate=True)
+        dataset.settings.read.limit = 2
+
+        with pytest.raises(ReadError) as exc_info:
+            dataset.read()
+
+        assert "order_by is required when auto_paginate is enabled" in str(exc_info.value)
+        assert linked_service.connection.request.call_count == 0
 
     def test_read_without_auto_paginate_keeps_single_request(self) -> None:
         """It preserves the single-request path when auto_paginate=False."""

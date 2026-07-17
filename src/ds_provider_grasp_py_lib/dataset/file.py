@@ -178,8 +178,25 @@ class GraspFileDataset(
         Read one page or all pages of file metadata from the API.
         """
         read = self.settings.read
-        if read.auto_paginate and read.limit <= 0:
-            raise ReadError("Read limit must be greater than zero when auto_paginate is enabled")
+        if read.limit <= 0:
+            raise ReadError(
+                "Read limit must be greater than zero",
+                status_code=400,
+                details={
+                    "type": self.type.value,
+                    "settings": self.settings.serialize(),
+                },
+            )
+
+        if read.auto_paginate and not read.order_by:
+            raise ReadError(
+                message="order_by is required when auto_paginate is enabled",
+                status_code=400,
+                details={
+                    "type": self.type.value,
+                    "settings": self.settings.serialize(),
+                },
+            )
 
         if not self.settings.read.auto_paginate:
             response = self.linked_service.connection.request(
