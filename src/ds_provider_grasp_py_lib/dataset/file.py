@@ -55,10 +55,10 @@ class ReadSettings:
     """
 
     download_file: bool = True
-    auto_paginate: bool = False
+    full_load: bool = False
     """When True, `read()` advances `offset` and concatenates pages until exhausted."""
     limit: int = 500
-    """Used only when `auto_paginate` is enabled."""
+    """Forwarded as a request parameter for single reads; page size if `full_load=True`."""
     offset: int = 0
     order_by: str | None = None
     tags: dict[str, str] | None = field(default_factory=dict)
@@ -188,9 +188,9 @@ class GraspFileDataset(
                 },
             )
 
-        if read.auto_paginate and not read.order_by:
+        if read.full_load and not read.order_by:
             raise ReadError(
-                message="order_by is required when auto_paginate is enabled",
+                message="order_by is required when full_load is enabled",
                 status_code=400,
                 details={
                     "type": self.type.value,
@@ -198,7 +198,7 @@ class GraspFileDataset(
                 },
             )
 
-        if not self.settings.read.auto_paginate:
+        if not self.settings.read.full_load:
             response = self.linked_service.connection.request(
                 method="GET",
                 url=base_url,

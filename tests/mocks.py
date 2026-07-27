@@ -230,7 +230,7 @@ def create_mock_ingress_dataset(
 def create_mock_file_dataset(
     url: str = "https://grasp.example/api/file/",
     download_file: bool = True,
-    auto_paginate: bool = False,
+    full_load: bool = False,
     linked_service: MockHTTPLinkedService | None = None,
     deserializer: Any = _UNSET,
     serializer: Any = _UNSET,
@@ -253,7 +253,7 @@ def create_mock_file_dataset(
 
     settings = GraspFileDatasetSettings(
         url=url,
-        read=ReadSettings(download_file=download_file, auto_paginate=auto_paginate),
+        read=ReadSettings(download_file=download_file, full_load=full_load),
     )
     dataset_kwargs: dict[str, Any] = {
         "id": uuid.uuid4(),

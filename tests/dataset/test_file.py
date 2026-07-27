@@ -117,14 +117,14 @@ class TestGraspFileDatasetRead:
             "meta.category": "data",
         }
 
-    def test_read_auto_paginate_concatenates_all_pages(self) -> None:
+    def test_read_full_load_concatenates_all_pages(self) -> None:
         """It keeps requesting pages until the returned page is shorter than the configured limit."""
         linked_service = create_mock_http_linked_service()
         linked_service.connection.request.side_effect = [
             MockHTTPResponse(json_data={"data": [{"id": "f1"}, {"id": "f2"}]}),
             MockHTTPResponse(json_data={"data": [{"id": "f3"}]}),
         ]
-        dataset = create_mock_file_dataset(linked_service=linked_service, download_file=False, auto_paginate=True)
+        dataset = create_mock_file_dataset(linked_service=linked_service, download_file=False, full_load=True)
         dataset.settings.read.limit = 2
         dataset.settings.read.offset = 4
         dataset.settings.read.order_by = "id"
@@ -144,23 +144,23 @@ class TestGraspFileDatasetRead:
             "order_by": "id",
         }
 
-    def test_read_auto_paginate_requires_order_by(self) -> None:
-        """It rejects auto-pagination unless a deterministic order is configured."""
+    def test_read_full_load_requires_order_by(self) -> None:
+        """It rejects full-load paging unless a deterministic order is configured."""
         linked_service = create_mock_http_linked_service()
-        dataset = create_mock_file_dataset(linked_service=linked_service, download_file=False, auto_paginate=True)
+        dataset = create_mock_file_dataset(linked_service=linked_service, download_file=False, full_load=True)
         dataset.settings.read.limit = 2
 
         with pytest.raises(ReadError) as exc_info:
             dataset.read()
 
-        assert "order_by is required when auto_paginate is enabled" in str(exc_info.value)
+        assert "order_by is required when full_load is enabled" in str(exc_info.value)
         assert linked_service.connection.request.call_count == 0
 
-    def test_read_without_auto_paginate_keeps_single_request(self) -> None:
-        """It preserves the single-request path when auto_paginate=False."""
+    def test_read_without_full_load_keeps_single_request(self) -> None:
+        """It preserves the single-request path when full_load=False."""
         linked_service = create_mock_http_linked_service()
         linked_service.connection.request.return_value = MockHTTPResponse(json_data={"data": [{"id": "f1"}]})
-        dataset = create_mock_file_dataset(linked_service=linked_service, download_file=False, auto_paginate=False)
+        dataset = create_mock_file_dataset(linked_service=linked_service, download_file=False, full_load=False)
         dataset.settings.read.limit = 2
         dataset.settings.read.offset = 4
 

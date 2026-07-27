@@ -54,7 +54,8 @@ def main() -> None:
         ),
         settings=GraspFileDatasetSettings(
             url="https://dev.aic-project.com/api/file/file/",
-            read=ReadSettings(download_file=True, limit=2, auto_paginate=True),
+            # read=ReadSettings(download_file=True, limit=2, full_load=True),
+            read=ReadSettings(download_file=True),
         ),
     )
 
