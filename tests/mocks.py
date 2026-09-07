@@ -65,9 +65,15 @@ class MockAWSLinkedService:
 class MockHTTPResponse:
     """Mock HTTP response with JSON payload and binary content."""
 
-    def __init__(self, json_data: dict[str, Any] | None = None, content: bytes = b"") -> None:
+    def __init__(
+        self,
+        json_data: dict[str, Any] | None = None,
+        content: bytes = b"",
+        headers: dict[str, str] | None = None,
+    ) -> None:
         self._json_data = json_data or {}
         self.content = content
+        self.headers = headers or {}
 
     def json(self) -> dict[str, Any]:
         return self._json_data

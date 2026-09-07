@@ -152,7 +152,7 @@ class GraspFileDataset(
         """
         metadata = self._create_metadata()
         data = self._upload_file_content(metadata)
-        self.output = pd.DataFrame(data)
+        self.output = pd.DataFrame([data])
 
     def read(self) -> None:
         """
@@ -162,33 +162,51 @@ class GraspFileDataset(
         base_url = self._base_url()
         logger.debug(f"Reading files from {base_url}")
 
-        response = self.linked_service.connection.request(
-            method="GET",
-            url=base_url,
-            headers=self.linked_service.settings.headers,
-            params=self._read_params(),
-        )
+        params = self._read_params()
+        limit = params.get("limit", 500)
+        offset = params.get("offset", 0)
 
-        files = response.json()["data"]
+        files: list[dict[str, Any]] = []
+        while True:
+            response = self.linked_service.connection.request(
+                method="GET",
+                url=base_url,
+                headers=self.linked_service.settings.headers,
+                params={**params, "limit": limit, "offset": offset},
+            )
+            payload = response.json()
+            files.extend(payload["data"])
+
+            page = payload.get("page") or {}
+            if not page.get("has_next"):
+                break
+            offset += limit
+
         if self.settings.read.download_file:
             for file in files:
                 file_id = file["id"]
                 url = f"{base_url}{file_id}/content/"
                 try:
-                    response = self.linked_service.connection.request(
+                    content_response = self.linked_service.connection.request(
                         method="GET",
                         url=url,
                         headers=self.linked_service.settings.headers,
                     )
                 except ResourceException as exc:
                     if exc.status_code == 404:
-                        file.update({"content": b""})
+                        file.update({"content": b"", "content_type": None, "etag": None, "sha256": None})
                         continue
-                file.update({"content": response.content})
+                    raise
+                file.update(
+                    {
+                        "content": content_response.content,
+                        "content_type": content_response.headers.get("X-Content-Type"),
+                        "etag": content_response.headers.get("ETag"),
+                        "sha256": content_response.headers.get("X-Content-SHA256"),
+                    }
+                )
 
-            self.output = pd.DataFrame(files)
-        else:
-            self.output = pd.DataFrame(files)
+        self.output = pd.DataFrame(files)
 
     def update(self) -> NoReturn:
         raise AuthorizationError(
