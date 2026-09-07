@@ -61,8 +61,8 @@ class TestGraspFileDatasetRead:
         linked_service = create_mock_http_linked_service()
         linked_service.connection.request.side_effect = [
             MockHTTPResponse(json_data={"data": [{"id": "f1"}, {"id": "f2"}]}),
-            MockHTTPResponse(content=b"hello"),
-            MockHTTPResponse(content=b"world"),
+            MockHTTPResponse(content=b"hello", headers={"X-Content-Type": "text/plain", "ETag": "e1"}),
+            MockHTTPResponse(content=b"world", headers={"X-Content-Type": "image/png", "ETag": "e2"}),
         ]
         dataset = create_mock_file_dataset(linked_service=linked_service, download_file=True)
 
@@ -70,6 +70,8 @@ class TestGraspFileDatasetRead:
 
         assert list(dataset.output["id"]) == ["f1", "f2"]
         assert list(dataset.output["content"]) == [b"hello", b"world"]
+        assert list(dataset.output["content_type"]) == ["text/plain", "image/png"]
+        assert list(dataset.output["etag"]) == ["e1", "e2"]
 
     def test_read_uses_empty_content_when_file_download_returns_404(self) -> None:
         """It sets empty content for files that return a 404 during content download."""
@@ -83,6 +85,61 @@ class TestGraspFileDatasetRead:
         dataset.read()
 
         assert dataset.output.iloc[0]["content"] == b""
+
+    def test_read_uses_empty_content_without_raising_on_non_404_download_error(self) -> None:
+        """It sets empty content (not stale data from a prior request) and does not raise on non-404 errors."""
+        linked_service = create_mock_http_linked_service()
+        linked_service.connection.request.side_effect = [
+            MockHTTPResponse(json_data={"data": [{"id": "f1"}]}),
+            ResourceException(message="server error", status_code=500),
+        ]
+        dataset = create_mock_file_dataset(linked_service=linked_service, download_file=True)
+
+        dataset.read()
+
+        assert dataset.output.iloc[0]["content"] == b""
+
+    def test_read_defaults_to_a_single_page(self) -> None:
+        """It does not paginate by default, preserving prior single-request behavior."""
+        linked_service = create_mock_http_linked_service()
+        linked_service.connection.request.return_value = MockHTTPResponse(
+            json_data={"data": [{"id": "f1"}], "page": {"has_next": True}}
+        )
+        dataset = create_mock_file_dataset(linked_service=linked_service, download_file=False)
+
+        dataset.read()
+
+        assert list(dataset.output["id"]) == ["f1"]
+        linked_service.connection.request.assert_called_once()
+
+    def test_read_follows_pagination_until_has_next_is_false_when_enabled(self) -> None:
+        """It keeps requesting subsequent pages while page.has_next is true when paginate=True."""
+        linked_service = create_mock_http_linked_service()
+        linked_service.connection.request.side_effect = [
+            MockHTTPResponse(json_data={"data": [{"id": "f1"}], "page": {"has_next": True}}),
+            MockHTTPResponse(json_data={"data": [{"id": "f2"}], "page": {"has_next": False}}),
+        ]
+        dataset = create_mock_file_dataset(linked_service=linked_service, download_file=False)
+        dataset.settings.read.limit = 1
+        dataset.settings.read.paginate = True
+
+        dataset.read()
+
+        assert list(dataset.output["id"]) == ["f1", "f2"]
+        offsets = [call.kwargs["params"]["offset"] for call in linked_service.connection.request.call_args_list]
+        assert offsets == [0, 1]
+
+    def test_read_rejects_non_positive_limit_when_pagination_enabled(self) -> None:
+        """It raises ValueError instead of looping forever when limit is non-positive and paginate=True."""
+        linked_service = create_mock_http_linked_service()
+        dataset = create_mock_file_dataset(linked_service=linked_service, download_file=False)
+        dataset.settings.read.limit = 0
+        dataset.settings.read.paginate = True
+
+        with pytest.raises(ValueError, match="positive integer"):
+            dataset.read()
+
+        linked_service.connection.request.assert_not_called()
 
     def test_read_passes_optional_query_params(self) -> None:
         """It forwards optional read filters as query params on list request."""
@@ -126,7 +183,7 @@ class TestGraspFileDatasetCreate:
         dataset = create_mock_file_dataset()
         dataset.input = create_test_dataframe(rows=1, with_valid_to=False)
         dataset._create_metadata = MagicMock(return_value={"id": "f1"})  # type: ignore[method-assign]
-        dataset._upload_file_content = MagicMock(return_value=[{"id": "f1", "status": "ok"}])  # type: ignore[method-assign]
+        dataset._upload_file_content = MagicMock(return_value={"id": "f1", "status": "ok"})  # type: ignore[method-assign]
 
         dataset.create()
 

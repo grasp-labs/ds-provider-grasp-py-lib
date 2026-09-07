@@ -56,6 +56,8 @@ class ReadSettings:
     download_file: bool = True
     limit: int = 500
     offset: int = 0
+    paginate: bool = False
+    """When True, follow page.has_next across requests instead of returning a single page."""
     order_by: str | None = None
     tags: dict[str, str] | None = field(default_factory=dict)
     meta: dict[str, str] | None = field(default_factory=dict)
@@ -145,6 +147,16 @@ class GraspFileDataset(
 
         return params
 
+    def _content_fields(self, content: bytes, headers: dict[str, str] | None = None) -> dict[str, Any]:
+        """Build the content/content_type/etag/sha256 fields for a file row."""
+        headers = headers or {}
+        return {
+            "content": content,
+            "content_type": headers.get("X-Content-Type"),
+            "etag": headers.get("ETag"),
+            "sha256": headers.get("X-Content-SHA256"),
+        }
+
     def create(self) -> None:
         """
         Write the content of the dataset to the file.
@@ -152,7 +164,7 @@ class GraspFileDataset(
         """
         metadata = self._create_metadata()
         data = self._upload_file_content(metadata)
-        self.output = pd.DataFrame(data)
+        self.output = pd.DataFrame([data])
 
     def read(self) -> None:
         """
@@ -162,33 +174,50 @@ class GraspFileDataset(
         base_url = self._base_url()
         logger.debug(f"Reading files from {base_url}")
 
-        response = self.linked_service.connection.request(
-            method="GET",
-            url=base_url,
-            headers=self.linked_service.settings.headers,
-            params=self._read_params(),
-        )
+        params = self._read_params()
+        limit = params.get("limit", 500)
+        offset = params.get("offset", 0)
 
-        files = response.json()["data"]
+        if self.settings.read.paginate and (not isinstance(limit, int) or limit <= 0):
+            raise ValueError("settings.read.limit must be a positive integer when paginate is enabled")
+
+        files: list[dict[str, Any]] = []
+        while True:
+            response = self.linked_service.connection.request(
+                method="GET",
+                url=base_url,
+                headers=self.linked_service.settings.headers,
+                params={**params, "limit": limit, "offset": offset},
+            )
+            payload = response.json()
+            files.extend(payload["data"])
+
+            if not self.settings.read.paginate:
+                break
+
+            page = payload.get("page") or {}
+            if not page.get("has_next"):
+                break
+            offset += limit
+
         if self.settings.read.download_file:
             for file in files:
                 file_id = file["id"]
                 url = f"{base_url}{file_id}/content/"
                 try:
-                    response = self.linked_service.connection.request(
+                    content_response = self.linked_service.connection.request(
                         method="GET",
                         url=url,
                         headers=self.linked_service.settings.headers,
                     )
                 except ResourceException as exc:
-                    if exc.status_code == 404:
-                        file.update({"content": b""})
-                        continue
-                file.update({"content": response.content})
+                    if exc.status_code != 404:
+                        logger.warning(f"Failed to download content for file {file_id}: {exc}")
+                    file.update(self._content_fields(b""))
+                    continue
+                file.update(self._content_fields(content_response.content, content_response.headers))
 
-            self.output = pd.DataFrame(files)
-        else:
-            self.output = pd.DataFrame(files)
+        self.output = pd.DataFrame(files)
 
     def update(self) -> NoReturn:
         raise AuthorizationError(
