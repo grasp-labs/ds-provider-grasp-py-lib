@@ -129,6 +129,18 @@ class TestGraspFileDatasetRead:
         offsets = [call.kwargs["params"]["offset"] for call in linked_service.connection.request.call_args_list]
         assert offsets == [0, 1]
 
+    def test_read_rejects_non_positive_limit_when_pagination_enabled(self) -> None:
+        """It raises ValueError instead of looping forever when limit is non-positive and paginate=True."""
+        linked_service = create_mock_http_linked_service()
+        dataset = create_mock_file_dataset(linked_service=linked_service, download_file=False)
+        dataset.settings.read.limit = 0
+        dataset.settings.read.paginate = True
+
+        with pytest.raises(ValueError, match="positive integer"):
+            dataset.read()
+
+        linked_service.connection.request.assert_not_called()
+
     def test_read_passes_optional_query_params(self) -> None:
         """It forwards optional read filters as query params on list request."""
         linked_service = create_mock_http_linked_service()

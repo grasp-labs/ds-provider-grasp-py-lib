@@ -178,6 +178,9 @@ class GraspFileDataset(
         limit = params.get("limit", 500)
         offset = params.get("offset", 0)
 
+        if self.settings.read.paginate and (not isinstance(limit, int) or limit <= 0):
+            raise ValueError("settings.read.limit must be a positive integer when paginate is enabled")
+
         files: list[dict[str, Any]] = []
         while True:
             response = self.linked_service.connection.request(
