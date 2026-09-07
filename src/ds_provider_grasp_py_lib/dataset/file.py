@@ -56,6 +56,8 @@ class ReadSettings:
     download_file: bool = True
     limit: int = 500
     offset: int = 0
+    paginate: bool = False
+    """When True, follow page.has_next across requests instead of returning a single page."""
     order_by: str | None = None
     tags: dict[str, str] | None = field(default_factory=dict)
     meta: dict[str, str] | None = field(default_factory=dict)
@@ -187,6 +189,9 @@ class GraspFileDataset(
             payload = response.json()
             files.extend(payload["data"])
 
+            if not self.settings.read.paginate:
+                break
+
             page = payload.get("page") or {}
             if not page.get("has_next"):
                 break
@@ -203,10 +208,10 @@ class GraspFileDataset(
                         headers=self.linked_service.settings.headers,
                     )
                 except ResourceException as exc:
-                    if exc.status_code == 404:
-                        file.update(self._content_fields(b""))
-                        continue
-                    raise
+                    if exc.status_code != 404:
+                        logger.warning(f"Failed to download content for file {file_id}: {exc}")
+                    file.update(self._content_fields(b""))
+                    continue
                 file.update(self._content_fields(content_response.content, content_response.headers))
 
         self.output = pd.DataFrame(files)

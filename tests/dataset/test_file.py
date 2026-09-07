@@ -86,8 +86,8 @@ class TestGraspFileDatasetRead:
 
         assert dataset.output.iloc[0]["content"] == b""
 
-    def test_read_raises_when_file_download_fails_with_non_404(self) -> None:
-        """It propagates non-404 errors during content download instead of reusing stale content."""
+    def test_read_uses_empty_content_without_raising_on_non_404_download_error(self) -> None:
+        """It sets empty content (not stale data from a prior request) and does not raise on non-404 errors."""
         linked_service = create_mock_http_linked_service()
         linked_service.connection.request.side_effect = [
             MockHTTPResponse(json_data={"data": [{"id": "f1"}]}),
@@ -95,11 +95,25 @@ class TestGraspFileDatasetRead:
         ]
         dataset = create_mock_file_dataset(linked_service=linked_service, download_file=True)
 
-        with pytest.raises(ResourceException):
-            dataset.read()
+        dataset.read()
 
-    def test_read_follows_pagination_until_has_next_is_false(self) -> None:
-        """It keeps requesting subsequent pages while page.has_next is true."""
+        assert dataset.output.iloc[0]["content"] == b""
+
+    def test_read_defaults_to_a_single_page(self) -> None:
+        """It does not paginate by default, preserving prior single-request behavior."""
+        linked_service = create_mock_http_linked_service()
+        linked_service.connection.request.return_value = MockHTTPResponse(
+            json_data={"data": [{"id": "f1"}], "page": {"has_next": True}}
+        )
+        dataset = create_mock_file_dataset(linked_service=linked_service, download_file=False)
+
+        dataset.read()
+
+        assert list(dataset.output["id"]) == ["f1"]
+        linked_service.connection.request.assert_called_once()
+
+    def test_read_follows_pagination_until_has_next_is_false_when_enabled(self) -> None:
+        """It keeps requesting subsequent pages while page.has_next is true when paginate=True."""
         linked_service = create_mock_http_linked_service()
         linked_service.connection.request.side_effect = [
             MockHTTPResponse(json_data={"data": [{"id": "f1"}], "page": {"has_next": True}}),
@@ -107,6 +121,7 @@ class TestGraspFileDatasetRead:
         ]
         dataset = create_mock_file_dataset(linked_service=linked_service, download_file=False)
         dataset.settings.read.limit = 1
+        dataset.settings.read.paginate = True
 
         dataset.read()
 
