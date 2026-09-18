@@ -85,17 +85,18 @@ class TestGraspFileDatasetRead:
         assert dataset.output.iloc[0]["content"] == b""
 
     def test_read_uses_empty_content_without_raising_on_non_404_download_error(self) -> None:
-        """It sets empty content (not stale data from a prior request) and does not raise on non-404 errors."""
+        """It does not reuse a prior file's content when a later download fails with non-404."""
         linked_service = create_mock_http_linked_service()
         linked_service.connection.request.side_effect = [
-            MockHTTPResponse(json_data={"data": [{"id": "f1"}]}),
+            MockHTTPResponse(json_data={"data": [{"id": "f1"}, {"id": "f2"}]}),
+            MockHTTPResponse(content=b"hello"),
             ResourceException(message="server error", status_code=500),
         ]
         dataset = create_mock_file_dataset(linked_service=linked_service, download_file=True)
 
         dataset.read()
 
-        assert dataset.output.iloc[0]["content"] == b""
+        assert list(dataset.output["content"]) == [b"hello", b""]
 
     def test_read_defaults_to_a_single_page(self) -> None:
         """It does not paginate by default, preserving prior single-request behavior."""
