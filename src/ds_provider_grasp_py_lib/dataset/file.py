@@ -147,16 +147,6 @@ class GraspFileDataset(
 
         return params
 
-    def _content_fields(self, content: bytes, headers: dict[str, str] | None = None) -> dict[str, Any]:
-        """Build the content/content_type/etag/sha256 fields for a file row."""
-        headers = headers or {}
-        return {
-            "content": content,
-            "content_type": headers.get("X-Content-Type"),
-            "etag": headers.get("ETag"),
-            "sha256": headers.get("X-Content-SHA256"),
-        }
-
     def create(self) -> None:
         """
         Write the content of the dataset to the file.
@@ -213,9 +203,9 @@ class GraspFileDataset(
                 except ResourceException as exc:
                     if exc.status_code != 404:
                         logger.warning(f"Failed to download content for file {file_id}: {exc}")
-                    file.update(self._content_fields(b""))
+                    file.update({"content": b""})
                     continue
-                file.update(self._content_fields(content_response.content, content_response.headers))
+                file.update({"content": content_response.content})
 
         self.output = pd.DataFrame(files)
 

@@ -61,8 +61,8 @@ class TestGraspFileDatasetRead:
         linked_service = create_mock_http_linked_service()
         linked_service.connection.request.side_effect = [
             MockHTTPResponse(json_data={"data": [{"id": "f1"}, {"id": "f2"}]}),
-            MockHTTPResponse(content=b"hello", headers={"X-Content-Type": "text/plain", "ETag": "e1"}),
-            MockHTTPResponse(content=b"world", headers={"X-Content-Type": "image/png", "ETag": "e2"}),
+            MockHTTPResponse(content=b"hello"),
+            MockHTTPResponse(content=b"world"),
         ]
         dataset = create_mock_file_dataset(linked_service=linked_service, download_file=True)
 
@@ -70,8 +70,6 @@ class TestGraspFileDatasetRead:
 
         assert list(dataset.output["id"]) == ["f1", "f2"]
         assert list(dataset.output["content"]) == [b"hello", b"world"]
-        assert list(dataset.output["content_type"]) == ["text/plain", "image/png"]
-        assert list(dataset.output["etag"]) == ["e1", "e2"]
 
     def test_read_uses_empty_content_when_file_download_returns_404(self) -> None:
         """It sets empty content for files that return a 404 during content download."""
