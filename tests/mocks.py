@@ -24,6 +24,7 @@ from ds_provider_grasp_py_lib.dataset.cart import (
 from ds_provider_grasp_py_lib.dataset.file import (
     GraspFileDataset,
     GraspFileDatasetSettings,
+    ListSettings,
     ReadSettings,
 )
 from ds_provider_grasp_py_lib.dataset.ingress import (
@@ -252,7 +253,8 @@ def create_mock_file_dataset(
 
     settings = GraspFileDatasetSettings(
         url=url,
-        read=ReadSettings(download_file=download_file),
+        read=ReadSettings(),
+        list=ListSettings(download_file=download_file),
     )
     dataset_kwargs: dict[str, Any] = {
         "id": uuid.uuid4(),
