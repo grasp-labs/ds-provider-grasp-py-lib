@@ -84,6 +84,74 @@ class TestGraspFileDatasetRead:
 
         assert dataset.output.iloc[0]["content"] == b""
 
+    def test_read_uses_empty_content_without_raising_on_non_404_download_error(self) -> None:
+        """It does not reuse a prior file's content when a later download fails with non-404."""
+        linked_service = create_mock_http_linked_service()
+        linked_service.connection.request.side_effect = [
+            MockHTTPResponse(json_data={"data": [{"id": "f1"}, {"id": "f2"}]}),
+            MockHTTPResponse(content=b"hello"),
+            ResourceException(message="server error", status_code=500),
+        ]
+        dataset = create_mock_file_dataset(linked_service=linked_service, download_file=True)
+
+        dataset.read()
+
+        assert list(dataset.output["content"]) == [b"hello", b""]
+
+    def test_read_defaults_to_a_single_page(self) -> None:
+        """It does not paginate by default, preserving prior single-request behavior."""
+        linked_service = create_mock_http_linked_service()
+        linked_service.connection.request.return_value = MockHTTPResponse(
+            json_data={"data": [{"id": "f1"}], "page": {"has_next": True}}
+        )
+        dataset = create_mock_file_dataset(linked_service=linked_service, download_file=False)
+
+        dataset.read()
+
+        assert list(dataset.output["id"]) == ["f1"]
+        linked_service.connection.request.assert_called_once()
+
+    def test_read_follows_pagination_until_has_next_is_false_when_enabled(self) -> None:
+        """It keeps requesting subsequent pages while page.has_next is true when paginate=True."""
+        linked_service = create_mock_http_linked_service()
+        linked_service.connection.request.side_effect = [
+            MockHTTPResponse(json_data={"data": [{"id": "f1"}], "page": {"has_next": True}}),
+            MockHTTPResponse(json_data={"data": [{"id": "f2"}], "page": {"has_next": False}}),
+        ]
+        dataset = create_mock_file_dataset(linked_service=linked_service, download_file=False)
+        dataset.settings.read.limit = 1
+        dataset.settings.read.paginate = True
+
+        dataset.read()
+
+        assert list(dataset.output["id"]) == ["f1", "f2"]
+        offsets = [call.kwargs["params"]["offset"] for call in linked_service.connection.request.call_args_list]
+        assert offsets == [0, 1]
+
+    def test_read_rejects_non_positive_limit_when_pagination_enabled(self) -> None:
+        """It raises ValueError instead of looping forever when limit is non-positive and paginate=True."""
+        linked_service = create_mock_http_linked_service()
+        dataset = create_mock_file_dataset(linked_service=linked_service, download_file=False)
+        dataset.settings.read.limit = 0
+        dataset.settings.read.paginate = True
+
+        with pytest.raises(ValueError, match="positive integer"):
+            dataset.read()
+
+        linked_service.connection.request.assert_not_called()
+
+    def test_read_rejects_boolean_limit_when_pagination_enabled(self) -> None:
+        """It rejects a bool limit even though bool is a subclass of int in Python."""
+        linked_service = create_mock_http_linked_service()
+        dataset = create_mock_file_dataset(linked_service=linked_service, download_file=False)
+        dataset.settings.read.limit = True  # type: ignore[assignment]
+        dataset.settings.read.paginate = True
+
+        with pytest.raises(ValueError, match="positive integer"):
+            dataset.read()
+
+        linked_service.connection.request.assert_not_called()
+
     def test_read_passes_optional_query_params(self) -> None:
         """It forwards optional read filters as query params on list request."""
         linked_service = create_mock_http_linked_service()
@@ -125,13 +193,50 @@ class TestGraspFileDatasetCreate:
         """It delegates to metadata/content helpers and stores output as a DataFrame."""
         dataset = create_mock_file_dataset()
         dataset.input = create_test_dataframe(rows=1, with_valid_to=False)
+        dataset.settings.create.content = BytesIO(b"data")
         dataset._create_metadata = MagicMock(return_value={"id": "f1"})  # type: ignore[method-assign]
-        dataset._upload_file_content = MagicMock(return_value=[{"id": "f1", "status": "ok"}])  # type: ignore[method-assign]
+        dataset._upload_file_content = MagicMock(return_value={"id": "f1", "status": "ok"})  # type: ignore[method-assign]
 
         dataset.create()
 
         assert dataset._create_metadata.called
         dataset._upload_file_content.assert_called_once_with({"id": "f1"})
+        assert dataset.output.iloc[0]["id"] == "f1"
+
+    def test_create_keeps_a_single_row_for_a_real_shaped_file_output_dto(self) -> None:
+        """It doesn't explode nested metadata/tags/acl dict fields into extra DataFrame rows."""
+        dataset = create_mock_file_dataset()
+        dataset.input = create_test_dataframe(rows=1, with_valid_to=False)
+        dataset.settings.create.content = BytesIO(b"data")
+        file_output_dto = {
+            "id": "f1",
+            "status": "active",
+            "metadata": {"category": "data"},
+            "tags": {"category": "data"},
+            "acl": {"owners": ["creator-subject-id"], "viewers": []},
+        }
+        dataset._create_metadata = MagicMock(return_value={"id": "f1"})  # type: ignore[method-assign]
+        dataset._upload_file_content = MagicMock(return_value=file_output_dto)  # type: ignore[method-assign]
+
+        dataset.create()
+
+        assert len(dataset.output) == 1
+        assert dataset.output.iloc[0]["id"] == "f1"
+        assert dataset.output.iloc[0]["metadata"] == {"category": "data"}
+        assert dataset.output.iloc[0]["acl"] == {"owners": ["creator-subject-id"], "viewers": []}
+
+    def test_create_skips_content_upload_when_content_is_none(self) -> None:
+        """It creates metadata-only files without calling the content upload endpoint."""
+        dataset = create_mock_file_dataset()
+        dataset.input = create_test_dataframe(rows=1, with_valid_to=False)
+        dataset.settings.create.content = None
+        dataset._create_metadata = MagicMock(return_value={"id": "f1", "status": "active"})  # type: ignore[method-assign]
+        dataset._upload_file_content = MagicMock()  # type: ignore[method-assign]
+
+        dataset.create()
+
+        assert dataset._create_metadata.called
+        dataset._upload_file_content.assert_not_called()
         assert dataset.output.iloc[0]["id"] == "f1"
 
     def test_create_raises_when_metadata_creation_fails(self) -> None:

@@ -56,6 +56,8 @@ class ReadSettings:
     download_file: bool = True
     limit: int = 500
     offset: int = 0
+    paginate: bool = False
+    """When True, follow page.has_next across requests instead of returning a single page."""
     order_by: str | None = None
     tags: dict[str, str] | None = field(default_factory=dict)
     meta: dict[str, str] | None = field(default_factory=dict)
@@ -151,8 +153,9 @@ class GraspFileDataset(
         :return: None
         """
         metadata = self._create_metadata()
-        data = self._upload_file_content(metadata)
-        self.output = pd.DataFrame(data)
+        if self.settings.create.content is not None:
+            metadata = self._upload_file_content(metadata)
+        self.output = pd.DataFrame([metadata])
 
     def read(self) -> None:
         """
@@ -162,33 +165,50 @@ class GraspFileDataset(
         base_url = self._base_url()
         logger.debug(f"Reading files from {base_url}")
 
-        response = self.linked_service.connection.request(
-            method="GET",
-            url=base_url,
-            headers=self.linked_service.settings.headers,
-            params=self._read_params(),
-        )
+        params = self._read_params()
+        limit = params.get("limit", 500)
+        offset = params.get("offset", 0)
 
-        files = response.json()["data"]
+        if self.settings.read.paginate and (isinstance(limit, bool) or not isinstance(limit, int) or limit <= 0):
+            raise ValueError("settings.read.limit must be a positive integer when paginate is enabled")
+
+        files: list[dict[str, Any]] = []
+        while True:
+            response = self.linked_service.connection.request(
+                method="GET",
+                url=base_url,
+                headers=self.linked_service.settings.headers,
+                params={**params, "limit": limit, "offset": offset},
+            )
+            payload = response.json()
+            files.extend(payload["data"])
+
+            if not self.settings.read.paginate:
+                break
+
+            page = payload.get("page") or {}
+            if not page.get("has_next"):
+                break
+            offset += limit
+
         if self.settings.read.download_file:
             for file in files:
                 file_id = file["id"]
                 url = f"{base_url}{file_id}/content/"
                 try:
-                    response = self.linked_service.connection.request(
+                    content_response = self.linked_service.connection.request(
                         method="GET",
                         url=url,
                         headers=self.linked_service.settings.headers,
                     )
                 except ResourceException as exc:
-                    if exc.status_code == 404:
-                        file.update({"content": b""})
-                        continue
-                file.update({"content": response.content})
+                    if exc.status_code != 404:
+                        logger.warning(f"Failed to download content for file {file_id}: {exc}")
+                    file.update({"content": b""})
+                    continue
+                file.update({"content": content_response.content})
 
-            self.output = pd.DataFrame(files)
-        else:
-            self.output = pd.DataFrame(files)
+        self.output = pd.DataFrame(files)
 
     def update(self) -> NoReturn:
         raise AuthorizationError(
