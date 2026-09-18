@@ -153,8 +153,9 @@ class GraspFileDataset(
         :return: None
         """
         metadata = self._create_metadata()
-        data = self._upload_file_content(metadata)
-        self.output = pd.DataFrame([data])
+        if self.settings.create.content is not None:
+            metadata = self._upload_file_content(metadata)
+        self.output = pd.DataFrame([metadata])
 
     def read(self) -> None:
         """

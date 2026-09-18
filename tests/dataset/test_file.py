@@ -180,6 +180,7 @@ class TestGraspFileDatasetCreate:
         """It delegates to metadata/content helpers and stores output as a DataFrame."""
         dataset = create_mock_file_dataset()
         dataset.input = create_test_dataframe(rows=1, with_valid_to=False)
+        dataset.settings.create.content = BytesIO(b"data")
         dataset._create_metadata = MagicMock(return_value={"id": "f1"})  # type: ignore[method-assign]
         dataset._upload_file_content = MagicMock(return_value={"id": "f1", "status": "ok"})  # type: ignore[method-assign]
 
@@ -187,6 +188,20 @@ class TestGraspFileDatasetCreate:
 
         assert dataset._create_metadata.called
         dataset._upload_file_content.assert_called_once_with({"id": "f1"})
+        assert dataset.output.iloc[0]["id"] == "f1"
+
+    def test_create_skips_content_upload_when_content_is_none(self) -> None:
+        """It creates metadata-only files without calling the content upload endpoint."""
+        dataset = create_mock_file_dataset()
+        dataset.input = create_test_dataframe(rows=1, with_valid_to=False)
+        dataset.settings.create.content = None
+        dataset._create_metadata = MagicMock(return_value={"id": "f1", "status": "active"})  # type: ignore[method-assign]
+        dataset._upload_file_content = MagicMock()  # type: ignore[method-assign]
+
+        dataset.create()
+
+        assert dataset._create_metadata.called
+        dataset._upload_file_content.assert_not_called()
         assert dataset.output.iloc[0]["id"] == "f1"
 
     def test_create_raises_when_metadata_creation_fails(self) -> None:
