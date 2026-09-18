@@ -140,6 +140,18 @@ class TestGraspFileDatasetRead:
 
         linked_service.connection.request.assert_not_called()
 
+    def test_read_rejects_boolean_limit_when_pagination_enabled(self) -> None:
+        """It rejects a bool limit even though bool is a subclass of int in Python."""
+        linked_service = create_mock_http_linked_service()
+        dataset = create_mock_file_dataset(linked_service=linked_service, download_file=False)
+        dataset.settings.read.limit = True  # type: ignore[assignment]
+        dataset.settings.read.paginate = True
+
+        with pytest.raises(ValueError, match="positive integer"):
+            dataset.read()
+
+        linked_service.connection.request.assert_not_called()
+
     def test_read_passes_optional_query_params(self) -> None:
         """It forwards optional read filters as query params on list request."""
         linked_service = create_mock_http_linked_service()
@@ -190,6 +202,28 @@ class TestGraspFileDatasetCreate:
         assert dataset._create_metadata.called
         dataset._upload_file_content.assert_called_once_with({"id": "f1"})
         assert dataset.output.iloc[0]["id"] == "f1"
+
+    def test_create_keeps_a_single_row_for_a_real_shaped_file_output_dto(self) -> None:
+        """It doesn't explode nested metadata/tags/acl dict fields into extra DataFrame rows."""
+        dataset = create_mock_file_dataset()
+        dataset.input = create_test_dataframe(rows=1, with_valid_to=False)
+        dataset.settings.create.content = BytesIO(b"data")
+        file_output_dto = {
+            "id": "f1",
+            "status": "active",
+            "metadata": {"category": "data"},
+            "tags": {"category": "data"},
+            "acl": {"owners": ["creator-subject-id"], "viewers": []},
+        }
+        dataset._create_metadata = MagicMock(return_value={"id": "f1"})  # type: ignore[method-assign]
+        dataset._upload_file_content = MagicMock(return_value=file_output_dto)  # type: ignore[method-assign]
+
+        dataset.create()
+
+        assert len(dataset.output) == 1
+        assert dataset.output.iloc[0]["id"] == "f1"
+        assert dataset.output.iloc[0]["metadata"] == {"category": "data"}
+        assert dataset.output.iloc[0]["acl"] == {"owners": ["creator-subject-id"], "viewers": []}
 
     def test_create_skips_content_upload_when_content_is_none(self) -> None:
         """It creates metadata-only files without calling the content upload endpoint."""
